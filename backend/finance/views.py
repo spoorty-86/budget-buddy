@@ -11,7 +11,7 @@ from notifications.models import Notification as UserNotification
 from .models import Category, Income, Expense, Budget, SavingsGoal, Notification as FinanceNotification, Report
 from .serializers import (
     CategorySerializer, IncomeSerializer, ExpenseSerializer, BudgetSerializer,
-    SavingsGoalSerializer, NotificationSerializer, ReportSerializer,
+    SavingsGoalSerializer, NotificationSerializer, ReportSerializer, BudgetAlertSerializer,
 )
 
 
@@ -101,6 +101,26 @@ class BudgetViewSet(UserScopedViewSet):
     queryset = Budget.objects.all()
     serializer_class = BudgetSerializer
 
+    @action(detail=False, methods=['get'], url_path='alerts', name='budget-alerts')
+    def alerts(self, request):
+        queryset = self.get_queryset()
+        category = request.query_params.get('category')
+        month = request.query_params.get('month')
+        year = request.query_params.get('year')
+
+        if category:
+            if category.isdigit():
+                queryset = queryset.filter(category_id=category)
+            else:
+                queryset = queryset.filter(category__name__iexact=category)
+        if month:
+            queryset = queryset.filter(month=int(month))
+        if year:
+            queryset = queryset.filter(year=int(year))
+
+        serializer = BudgetAlertSerializer(queryset, many=True, context={'request': request})
+        return Response(serializer.data)
+
     @action(detail=False, methods=['get'], url_path='summary', name='budget-summary')
     def summary(self, request):
         queryset = self.get_queryset()
@@ -143,6 +163,15 @@ class BudgetViewSet(UserScopedViewSet):
         })
 
 
+class BudgetAlertViewSet(UserScopedViewSet):
+    """
+    Task 5 - Create Budget Alert API protected by JWT Auth.
+    """
+    queryset = Budget.objects.all()
+    serializer_class = BudgetAlertSerializer
+
+
+
 class SavingsGoalViewSet(UserScopedViewSet):
     queryset = SavingsGoal.objects.all()
     serializer_class = SavingsGoalSerializer
@@ -166,22 +195,35 @@ def dashboard(request):
     GET /api/finance/dashboard/?month=7&year=2026
     """
     user = request.user
-    month = int(request.GET.get('month', 0)) or None
-    year = int(request.GET.get('year', 0)) or None
+    try:
+        month = int(request.GET.get('month', 0))
+    except (ValueError, TypeError):
+        month = 0
+
+    try:
+        year = int(request.GET.get('year', 0))
+    except (ValueError, TypeError):
+        year = 0
 
     incomes = Income.objects.filter(user=user)
     expenses = Expense.objects.filter(user=user)
-    if month and year:
+    budgets = Budget.objects.filter(user=user)
+
+    if month > 0 and year > 0:
         incomes = incomes.filter(income_date__month=month, income_date__year=year)
         expenses = expenses.filter(date_spent__month=month, date_spent__year=year)
-
-    total_income = incomes.aggregate(total=Sum('amount'))['total'] or 0
-    total_expense = expenses.aggregate(total=Sum('amount'))['total'] or 0
-
-    budgets = Budget.objects.filter(user=user)
-    if month and year:
         budgets = budgets.filter(month=month, year=year)
+    elif month > 0:
+        incomes = incomes.filter(income_date__month=month)
+        expenses = expenses.filter(date_spent__month=month)
+        budgets = budgets.filter(month=month)
+    elif year > 0:
+        incomes = incomes.filter(income_date__year=year)
+        expenses = expenses.filter(date_spent__year=year)
+        budgets = budgets.filter(year=year)
 
+    total_income = incomes.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    total_expense = expenses.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
     total_budget = budgets.aggregate(total=Sum('budget_amount'))['total'] or Decimal('0.00')
     remaining_budget = total_budget - total_expense
 
@@ -194,6 +236,7 @@ def dashboard(request):
     recent_transactions = []
     for income in incomes.order_by('-income_date', '-created_at')[:5]:
         recent_transactions.append({
+            'id': f"inc-{income.id}",
             'type': 'income',
             'title': income.title,
             'amount': str(income.amount),
@@ -201,6 +244,7 @@ def dashboard(request):
         })
     for expense in expenses.order_by('-date_spent', '-created_at')[:5]:
         recent_transactions.append({
+            'id': f"exp-{expense.id}",
             'type': 'expense',
             'title': expense.title,
             'amount': str(expense.amount),
@@ -211,6 +255,8 @@ def dashboard(request):
     recent_transactions.sort(key=lambda item: item['date'], reverse=True)
     recent_transactions = recent_transactions[:5]
 
+    has_any_data = Income.objects.filter(user=user).exists() or Expense.objects.filter(user=user).exists()
+
     return Response({
         'total_income': str(total_income),
         'total_expense': str(total_expense),
@@ -219,6 +265,7 @@ def dashboard(request):
         'remaining_budget': str(remaining_budget),
         'expenses_by_category': expenses_by_category,
         'recent_transactions': recent_transactions,
+        'has_any_data': has_any_data,
     })
 
 

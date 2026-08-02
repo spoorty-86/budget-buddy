@@ -14,11 +14,52 @@ export default function Dashboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  const [alerts, setAlerts] = useState([])
+
   useEffect(() => {
     let active = true
     setLoading(true)
-    api.get(`/api/finance/dashboard/?month=${month}&year=${year}`).then(({ data }) => {
-      if (active) setData(data)
+    Promise.all([
+      api.get(`/api/finance/dashboard/?month=${month}&year=${year}`),
+      api.get('/api/finance/budget-alerts/'),
+      api.get('/api/notifications/'),
+    ]).then(([dashRes, alertsRes, notifsRes]) => {
+      if (!active) return
+      setData(dashRes.data)
+
+      const activeAlerts = (alertsRes.data || []).filter(
+        (a) => a.alert_level && a.alert_level !== 'Normal'
+      )
+      const unreadNotifs = (notifsRes.data || []).filter(
+        (n) => !n.is_read && (n.title.includes('Alert') || n.title.includes('Warning') || n.title.includes('Exceeded'))
+      )
+
+      const combined = []
+      const seenMessages = new Set()
+
+      for (const a of activeAlerts) {
+        if (!seenMessages.has(a.alert_message)) {
+          seenMessages.add(a.alert_message)
+          combined.push({
+            id: `alert-${a.id}`,
+            title: a.alert_level,
+            message: a.alert_message,
+            type: a.alert_level.includes('Exceeded') ? 'ERROR' : 'WARNING',
+          })
+        }
+      }
+      for (const n of unreadNotifs) {
+        if (!seenMessages.has(n.message)) {
+          seenMessages.add(n.message)
+          combined.push({
+            id: `notif-${n.id}`,
+            title: n.title,
+            message: n.message,
+            type: n.notification_type,
+          })
+        }
+      }
+      setAlerts(combined)
     }).finally(() => active && setLoading(false))
     return () => { active = false }
   }, [month, year])
@@ -38,6 +79,7 @@ export default function Dashboard() {
           <div className="field">
             <label>Month</label>
             <select value={month} onChange={(e) => setMonth(Number(e.target.value))}>
+              <option value={0}>All Months</option>
               {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
             </select>
           </div>
@@ -53,10 +95,37 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {alerts.length > 0 && (
+        <div style={{ display: 'grid', gap: '10px', marginBottom: '16px' }}>
+          {alerts.map((a) => (
+            <div
+              key={a.id}
+              className="alert-banner"
+              style={{
+                background: a.type === 'ERROR' ? '#fef2f2' : '#fffbeb',
+                border: `1px solid ${a.type === 'ERROR' ? '#fca5a5' : '#fcd34d'}`,
+                color: a.type === 'ERROR' ? '#991b1b' : '#92400e',
+                padding: '12px 16px',
+                borderRadius: '8px',
+                fontWeight: '500',
+                fontSize: '14px',
+              }}
+            >
+              🚨 <strong>{a.title}</strong>: {a.message}
+            </div>
+          ))}
+        </div>
+      )}
+
       {loading && <p className="empty-state">Loading…</p>}
 
       {!loading && data && (
         <>
+          {month !== 0 && Number(data.total_income) === 0 && Number(data.total_expense) === 0 && data.has_any_data && (
+            <div className="info-banner" style={{ background: '#e0f2fe', color: '#0369a1', padding: '10px 14px', borderRadius: '8px', marginBottom: '16px', fontSize: '14px' }}>
+              💡 No entries recorded for <strong>{MONTHS[month - 1]} {year}</strong>. Select <strong>All Months</strong> or switch months to view your transactions.
+            </div>
+          )}
           <div className="stat-row">
             <div className="card stat-card income">
               <div className="stat-label">Income</div>
