@@ -44,13 +44,22 @@ export default function Expenses() {
     load()
   }, [filter])
 
+  const [alertBanner, setAlertBanner] = useState(null)
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    setAlertBanner(null)
     try {
       await api.post('/api/finance/expenses/', { ...form, category: form.category || null })
       setForm(empty)
       load()
+
+      const notifsRes = await api.get('/api/notifications/')
+      const latestAlert = notifsRes.data.find(n => !n.is_read && (n.title.includes('Alert') || n.title.includes('Warning') || n.title.includes('Exceeded')))
+      if (latestAlert) {
+        setAlertBanner(latestAlert)
+      }
     } catch {
       setError('Could not save that expense. Check the fields and try again.')
     }
@@ -71,6 +80,23 @@ export default function Expenses() {
       </div>
 
       {error && <div className="error-banner">{error}</div>}
+
+      {alertBanner && (
+        <div
+          className="alert-banner"
+          style={{
+            background: alertBanner.notification_type === 'ERROR' ? '#fef2f2' : '#fffbeb',
+            border: `1px solid ${alertBanner.notification_type === 'ERROR' ? '#fca5a5' : '#fcd34d'}`,
+            color: alertBanner.notification_type === 'ERROR' ? '#991b1b' : '#92400e',
+            padding: '12px 16px',
+            borderRadius: '8px',
+            marginBottom: '16px',
+            fontWeight: '500',
+          }}
+        >
+          🚨 <strong>{alertBanner.title}</strong>: {alertBanner.message}
+        </div>
+      )}
 
       <form className="form-row" onSubmit={handleSubmit}>
         <div className="field">

@@ -127,3 +127,75 @@ class BudgetApiTests(APITestCase):
         self.assertIn('expenses_by_category', response.data)
         self.assertEqual(response.data['expenses_by_category'][0]['category__name'], 'TRAVEL')
         self.assertEqual(Decimal(response.data['expenses_by_category'][0]['total']), Decimal('18000.00'))
+
+
+class BudgetAlertTasksTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='alertuser', password='secret123')
+        self.client.force_authenticate(user=self.user)
+        self.food, _ = Category.objects.get_or_create(name='Food', defaults={'icon': 'utensils'})
+        self.budget = Budget.objects.create(
+            user=self.user,
+            category=self.food,
+            budget_amount=Decimal('100.00'),
+            month=8,
+            year=2026
+        )
+
+    def test_task_1_2_3_4_budget_utilization_and_warning_alerts(self):
+        from notifications.models import Notification
+
+        # 1. Below 80%: no warning alert created
+        Expense.objects.create(user=self.user, title='Groceries 1', amount=50, date_spent='2026-08-01', category=self.food)
+        self.assertFalse(Notification.objects.filter(user=self.user, title='Warning Alert').exists())
+
+        # 2. Hit 80%: Warning Alert generated
+        Expense.objects.create(user=self.user, title='Groceries 2', amount=30, date_spent='2026-08-02', category=self.food)
+        warn_notif = Notification.objects.filter(user=self.user, title='Warning Alert').first()
+        self.assertIsNotNone(warn_notif)
+        self.assertIn('80%', warn_notif.message)
+        self.assertIn('Food', warn_notif.message)
+
+        # 3. Duplicate prevention: adding another small expense keeping utilization between 80% and 89% does not duplicate 80% alert
+        Expense.objects.create(user=self.user, title='Coffee', amount=5, date_spent='2026-08-03', category=self.food)
+        self.assertEqual(Notification.objects.filter(user=self.user, title='Warning Alert').count(), 1)
+
+        # 4. Hit 90%: High Warning Alert generated
+        Expense.objects.create(user=self.user, title='Dinner', amount=7, date_spent='2026-08-04', category=self.food)
+        high_notif = Notification.objects.filter(user=self.user, title='High Warning Alert').first()
+        self.assertIsNotNone(high_notif)
+        self.assertIn('92%', high_notif.message)
+
+        # 5. Hit 100%+: Budget Exceeded Alert generated
+        Expense.objects.create(user=self.user, title='Snacks', amount=10, date_spent='2026-08-05', category=self.food)
+        exceeded_notif = Notification.objects.filter(user=self.user, title='Budget Exceeded Alert').first()
+        self.assertIsNotNone(exceeded_notif)
+        self.assertEqual(exceeded_notif.notification_type, 'ERROR')
+        self.assertEqual(exceeded_notif.priority, 3)
+
+    def test_task_5_budget_alert_api_jwt_protected(self):
+        from notifications.models import Notification
+
+        Expense.objects.create(user=self.user, title='Groceries', amount=90, date_spent='2026-08-01', category=self.food)
+
+        # Test authenticated call
+        url = reverse('budgetalert-list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(len(response.data) >= 1)
+        item = response.data[0]
+
+        # Check required fields in API
+        self.assertEqual(item['budget_category'], 'Food')
+        self.assertEqual(item['Budget Category'], 'Food')
+        self.assertEqual(item['budget_amount'], '100.00')
+        self.assertEqual(item['total_expense'], '90.00')
+        self.assertEqual(item['budget_utilization_percentage'], 90.0)
+        self.assertEqual(item['alert_level'], 'High Warning Alert')
+        self.assertIn('90%', item['alert_message'])
+
+        # Test unauthenticated call -> 401 Unauthorized
+        self.client.logout()
+        unauth_response = self.client.get(url)
+        self.assertEqual(unauth_response.status_code, status.HTTP_401_UNAUTHORIZED)
+

@@ -18,16 +18,19 @@ export default function Layout() {
   const [unreadCount, setUnreadCount] = useState(0)
   const navigate = useNavigate()
 
-  useEffect(() => {
+  const fetchUnread = () => {
     if (!ready || !profile) return
-    let active = true
     api.get('/api/notifications/').then(({ data }) => {
-      if (!active) return
       setUnreadCount(data.filter((item) => !item.is_read).length)
     }).catch(() => {
       setUnreadCount(0)
     })
-    return () => { active = false }
+  }
+
+  useEffect(() => {
+    fetchUnread()
+    const interval = setInterval(fetchUnread, 4000)
+    return () => clearInterval(interval)
   }, [profile, ready])
 
   function handleLogout() {

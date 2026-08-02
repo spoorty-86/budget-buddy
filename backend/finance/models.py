@@ -63,6 +63,7 @@ class Budget(models.Model):
     budget_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     month = models.PositiveSmallIntegerField()   # 1-12
     year = models.PositiveIntegerField()
+    triggered_alerts = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -75,6 +76,14 @@ class Budget(models.Model):
             self.monthly_limit = self.budget_amount
         elif self.monthly_limit and not self.budget_amount:
             self.budget_amount = self.monthly_limit
+
+        if self.pk:
+            try:
+                old = Budget.objects.get(pk=self.pk)
+                if old.budget_amount != self.budget_amount or old.monthly_limit != self.monthly_limit:
+                    self.triggered_alerts = []
+            except Budget.DoesNotExist:
+                pass
         super().save(*args, **kwargs)
 
     def __str__(self):

@@ -85,3 +85,79 @@ class ReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = Report
         fields = ['id', 'title', 'period_start', 'period_end', 'summary_json', 'created_at']
+
+
+class BudgetAlertSerializer(serializers.ModelSerializer):
+    budget_category = serializers.SerializerMethodField()
+    budget_amount = serializers.SerializerMethodField()
+    total_expense = serializers.SerializerMethodField()
+    budget_utilization_percentage = serializers.SerializerMethodField()
+    alert_level = serializers.SerializerMethodField()
+    alert_message = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Budget
+        fields = [
+            'id', 'category', 'month', 'year',
+            'budget_category', 'budget_amount', 'total_expense',
+            'budget_utilization_percentage', 'alert_level', 'alert_message'
+        ]
+
+    def get_budget_category(self, obj):
+        return obj.category.name if obj.category else 'General'
+
+    def get_budget_amount(self, obj):
+        return f"{obj.budget_amount:.2f}"
+
+    def _get_calculations(self, obj):
+        total_expense = Expense.objects.filter(
+            user=obj.user, category=obj.category,
+            date_spent__month=obj.month, date_spent__year=obj.year
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+
+        budget_amt = obj.budget_amount or Decimal('0.00')
+        if budget_amt > 0:
+            utilization_pct = float((total_expense / budget_amt) * Decimal('100.0'))
+        else:
+            utilization_pct = 100.0 if total_expense > 0 else 0.0
+
+        return total_expense, budget_amt, utilization_pct
+
+    def get_total_expense(self, obj):
+        total_expense, _, _ = self._get_calculations(obj)
+        return f"{total_expense:.2f}"
+
+    def get_budget_utilization_percentage(self, obj):
+        _, _, utilization_pct = self._get_calculations(obj)
+        return round(utilization_pct, 2)
+
+    def get_alert_level(self, obj):
+        _, _, utilization_pct = self._get_calculations(obj)
+        if utilization_pct >= 100:
+            return 'Budget Exceeded Alert'
+        elif utilization_pct >= 90:
+            return 'High Warning Alert'
+        elif utilization_pct >= 80:
+            return 'Warning Alert'
+        return 'Normal'
+
+    def get_alert_message(self, obj):
+        _, _, utilization_pct = self._get_calculations(obj)
+        cat_name = self.get_budget_category(obj)
+        util_int = int(utilization_pct)
+        if utilization_pct >= 100:
+            return f"Your {cat_name} Budget has been exceeded."
+        elif utilization_pct >= 80:
+            return f"You have used {util_int}% of your monthly {cat_name} Budget."
+        return f"You have used {util_int}% of your monthly {cat_name} Budget."
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['Budget Category'] = data['budget_category']
+        data['Budget Amount'] = data['budget_amount']
+        data['Total Expense'] = data['total_expense']
+        data['Budget Utilization Percentage'] = data['budget_utilization_percentage']
+        data['Alert Level'] = data['alert_level']
+        data['Alert Message'] = data['alert_message']
+        return data
+
