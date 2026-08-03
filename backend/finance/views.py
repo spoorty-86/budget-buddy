@@ -273,10 +273,22 @@ def dashboard(request):
 @permission_classes([permissions.IsAuthenticated])
 def summary(request):
     user = request.user
-    total_income = Income.objects.filter(user=user).aggregate(total=Sum('amount'))['total'] or 0
-    total_expense = Expense.objects.filter(user=user).aggregate(total=Sum('amount'))['total'] or 0
+    total_income = Income.objects.filter(user=user).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    total_expense = Expense.objects.filter(user=user).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    current_balance = total_income - total_expense
+    total_savings = SavingsGoal.objects.filter(user=user).aggregate(total=Sum('saved_amount'))['total'] or Decimal('0.00')
+    total_budget = Budget.objects.filter(user=user).aggregate(total=Sum('budget_amount'))['total'] or Decimal('0.00')
+    remaining_budget = total_budget - total_expense
+
     return Response({
         'total_income': total_income,
         'total_expense': total_expense,
-        'current_balance': total_income - total_expense,
+        'current_balance': current_balance,
+        'total_savings': total_savings,
+        'remaining_budget': remaining_budget,
+        'Total Income': total_income,
+        'Total Expense': total_expense,
+        'Current Balance': current_balance,
+        'Total Savings': total_savings,
+        'Remaining Budget': remaining_budget,
     })
