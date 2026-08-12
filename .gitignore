@@ -22,5 +22,9 @@ backend/db.sqlite3
 # Environment variables
 .env
 
+# Static files
+staticfiles/
+backend/staticfiles/
+
 # Nested clone directory
 BudgetBuddy-A-Full-Stack-Personal-Budget-Planning-and-Expense-Management-Platform/
