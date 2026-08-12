@@ -36,3 +36,28 @@ class NotificationViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post', 'patch'], url_path='mark_as_read')
     def mark_as_read(self, request, pk=None):
         return self.mark_read(request, pk=pk)
+
+    @action(detail=True, methods=['post', 'patch'], url_path='toggle-pin')
+    def toggle_pin(self, request, pk=None):
+        notification = self.get_object()
+        notification.is_pinned = not notification.is_pinned
+        notification.save(update_fields=['is_pinned'])
+        serializer = self.get_serializer(notification)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'], url_path='bulk-delete')
+    def bulk_delete(self, request):
+        ids = request.data.get('ids', [])
+        if not isinstance(ids, list):
+            return Response({'detail': 'Invalid ids payload'}, status=400)
+        deleted_count, _ = self.get_queryset().filter(id__in=ids).delete()
+        return Response({'status': 'deleted', 'count': deleted_count})
+
+    @action(detail=False, methods=['post'], url_path='bulk-pin')
+    def bulk_pin(self, request):
+        ids = request.data.get('ids', [])
+        pin = request.data.get('pin', True)
+        if not isinstance(ids, list):
+            return Response({'detail': 'Invalid ids payload'}, status=400)
+        updated_count = self.get_queryset().filter(id__in=ids).update(is_pinned=bool(pin))
+        return Response({'status': 'updated', 'count': updated_count})

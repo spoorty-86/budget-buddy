@@ -2,7 +2,7 @@ from decimal import Decimal
 from django.db.models import Sum
 from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
-from .models import Budget, SavingsGoal, Expense
+from .models import Budget, SavingsGoal, Expense, Income
 from notifications.models import Notification
 
 
@@ -42,40 +42,12 @@ def check_and_trigger_budget_alerts(budget):
     category_name = budget.category.name
     util_int = int(utilization_pct)
 
+    if budget_amt <= 0:
+        return
+
     triggered = list(budget.triggered_alerts or [])
     updated_triggered = list(triggered)
 
-    # 1. Check 80% threshold (Warning Alert)
-    if utilization_pct >= 80:
-        if '80' not in updated_triggered:
-            Notification.objects.create(
-                user=budget.user,
-                title='Warning Alert',
-                message=f"You have used {util_int}% of your monthly {category_name} Budget.",
-                notification_type='WARNING',
-                priority=1,
-            )
-            updated_triggered.append('80')
-    else:
-        if '80' in updated_triggered:
-            updated_triggered.remove('80')
-
-    # 2. Check 90% threshold (High Warning Alert)
-    if utilization_pct >= 90:
-        if '90' not in updated_triggered:
-            Notification.objects.create(
-                user=budget.user,
-                title='High Warning Alert',
-                message=f"You have used {util_int}% of your monthly {category_name} Budget.",
-                notification_type='WARNING',
-                priority=2,
-            )
-            updated_triggered.append('90')
-    else:
-        if '90' in updated_triggered:
-            updated_triggered.remove('90')
-
-    # 3. Check 100% threshold (Budget Exceeded Alert)
     if utilization_pct >= 100:
         if '100' not in updated_triggered:
             Notification.objects.create(
@@ -85,10 +57,43 @@ def check_and_trigger_budget_alerts(budget):
                 notification_type='ERROR',
                 priority=3,
             )
+            if '80' not in updated_triggered:
+                updated_triggered.append('80')
+            if '90' not in updated_triggered:
+                updated_triggered.append('90')
             updated_triggered.append('100')
-    else:
+    elif utilization_pct >= 90:
+        if '90' not in updated_triggered:
+            Notification.objects.create(
+                user=budget.user,
+                title='High Warning Alert',
+                message=f"You have used {util_int}% of your monthly {category_name} Budget.",
+                notification_type='WARNING',
+                priority=2,
+            )
+            if '80' not in updated_triggered:
+                updated_triggered.append('80')
+            updated_triggered.append('90')
         if '100' in updated_triggered:
             updated_triggered.remove('100')
+    elif utilization_pct >= 80:
+        if '80' not in updated_triggered:
+            Notification.objects.create(
+                user=budget.user,
+                title='Warning Alert',
+                message=f"You have used {util_int}% of your monthly {category_name} Budget.",
+                notification_type='WARNING',
+                priority=1,
+            )
+            updated_triggered.append('80')
+        if '90' in updated_triggered:
+            updated_triggered.remove('90')
+        if '100' in updated_triggered:
+            updated_triggered.remove('100')
+    else:
+        for val in ['80', '90', '100']:
+            if val in updated_triggered:
+                updated_triggered.remove(val)
 
     if updated_triggered != triggered:
         budget.triggered_alerts = updated_triggered
@@ -154,7 +159,51 @@ def expense_pre_save(sender, instance, **kwargs):
 @receiver(post_save, sender=Expense)
 def expense_post_save_budget_alert(sender, instance, created, **kwargs):
     """Run budget alert logic whenever a new expense is added or an existing expense is updated."""
+    if created:
+        cat_name = instance.category.name if instance.category else 'General'
+        Notification.objects.create(
+            user=instance.user,
+            title='Expense Added',
+            message=f"Expense '{instance.title}' of ₹{instance.amount:,.2f} for '{cat_name}' has been added.",
+            notification_type='INFO',
+            priority=1,
+        )
+
     month, year = get_month_year(instance.date_spent)
+    if month and year:
+        total_inc = Income.objects.filter(
+            user=instance.user,
+            income_date__month=month,
+            income_date__year=year
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+
+        total_exp_month = Expense.objects.filter(
+            user=instance.user,
+            date_spent__month=month,
+            date_spent__year=year
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+
+        if total_inc > 0:
+            if total_exp_month > total_inc:
+                if not Notification.objects.filter(user=instance.user, title='High Alert', message__icontains=f"income for {month}/{year}").exists():
+                    Notification.objects.create(
+                        user=instance.user,
+                        title='High Alert',
+                        message=f"High Warning Alert: Total expenses (₹{total_exp_month:,.2f}) have exceeded your total income (₹{total_inc:,.2f}) for {month}/{year}.",
+                        notification_type='ERROR',
+                        priority=3,
+                    )
+            elif total_exp_month >= total_inc * Decimal('0.8'):
+                if not Notification.objects.filter(user=instance.user, title='Warning Alert', message__icontains=f"income for {month}/{year}").exists():
+                    pct = int((total_exp_month / total_inc) * Decimal('100.0'))
+                    Notification.objects.create(
+                        user=instance.user,
+                        title='Warning Alert',
+                        message=f"Warning Alert: You have spent {pct}% of your monthly income for {month}/{year}.",
+                        notification_type='WARNING',
+                        priority=2,
+                    )
+
     if instance.category and month and year:
         budgets = list(Budget.objects.filter(
             user=instance.user,
@@ -167,15 +216,6 @@ def expense_post_save_budget_alert(sender, instance, created, **kwargs):
                 user=instance.user,
                 category=instance.category,
             ))
-        if not budgets:
-            b, _ = Budget.objects.get_or_create(
-                user=instance.user,
-                category=instance.category,
-                month=month,
-                year=year,
-                defaults={'budget_amount': Decimal('0.00'), 'monthly_limit': Decimal('0.00')}
-            )
-            budgets = [b]
         for b in budgets:
             check_and_trigger_budget_alerts(b)
 

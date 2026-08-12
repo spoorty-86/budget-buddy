@@ -225,6 +225,27 @@ def dashboard(request):
     total_income = incomes.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
     total_expense = expenses.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
     total_budget = budgets.aggregate(total=Sum('budget_amount'))['total'] or Decimal('0.00')
+
+    category_variances = []
+    for b in budgets:
+        limit = b.budget_amount or b.monthly_limit or Decimal('0.00')
+        spent_for_b = expenses.filter(category=b.category).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        variance_for_b = limit - spent_for_b
+        pct_used = float(round((spent_for_b / limit * 100), 1)) if limit > 0 else 0.0
+
+        category_variances.append({
+            'id': b.id,
+            'category_id': b.category.id if b.category else None,
+            'category_name': b.category.name if b.category else 'Uncategorized',
+            'budget_limit': str(limit),
+            'spent': str(spent_for_b),
+            'variance': str(variance_for_b),
+            'pct_used': pct_used,
+            'status': 'OVER_BUDGET' if spent_for_b > limit else 'UNDER_BUDGET',
+            'month': b.month,
+            'year': b.year,
+        })
+
     remaining_budget = total_budget - total_expense
 
     expenses_by_category = list(
@@ -263,6 +284,7 @@ def dashboard(request):
         'current_balance': str(total_income - total_expense),
         'total_budget': str(total_budget),
         'remaining_budget': str(remaining_budget),
+        'category_variances': category_variances,
         'expenses_by_category': expenses_by_category,
         'recent_transactions': recent_transactions,
         'has_any_data': has_any_data,

@@ -11,6 +11,8 @@ import Budgets from './pages/Budgets'
 import Categories from './pages/Categories'
 import SavingsGoals from './pages/SavingsGoals'
 import Notifications from './pages/Notifications'
+import Reports from './pages/Reports'
+import Profile from './pages/Profile'
 
 function RequireAuth({ children }) {
   const { profile, ready } = useAuth()
@@ -46,6 +48,8 @@ export default function App() {
         <Route path="categories" element={<Categories />} />
         <Route path="savings" element={<SavingsGoals />} />
         <Route path="notifications" element={<Notifications />} />
+        <Route path="reports" element={<Reports />} />
+        <Route path="profile" element={<Profile />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -26,31 +26,89 @@ def serialize_expense(exp):
     }
 
 
-def get_financial_summary_dict(user):
-    total_income = Income.objects.filter(user=user).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-    total_expense = Expense.objects.filter(user=user).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+def get_financial_summary_dict(user, month=0, year=0):
+    inc_qs = Income.objects.filter(user=user)
+    exp_qs = Expense.objects.filter(user=user)
+    bud_qs = Budget.objects.filter(user=user)
+
+    if year and year > 0:
+        inc_qs = inc_qs.filter(income_date__year=year)
+        exp_qs = exp_qs.filter(date_spent__year=year)
+        bud_qs = bud_qs.filter(year=year)
+
+    if month and month > 0:
+        inc_qs = inc_qs.filter(income_date__month=month)
+        exp_qs = exp_qs.filter(date_spent__month=month)
+        bud_qs = bud_qs.filter(month=month)
+
+    total_income = inc_qs.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    total_expense = exp_qs.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
     current_balance = total_income - total_expense
 
     total_savings = SavingsGoal.objects.filter(user=user).aggregate(total=Sum('saved_amount'))['total'] or Decimal('0.00')
-    total_budget = Budget.objects.filter(user=user).aggregate(total=Sum('budget_amount'))['total'] or Decimal('0.00')
-    remaining_budget = total_budget - total_expense
+
+    # Calculate total budget and expenses strictly for configured budget categories
+    total_budget = Decimal('0.00')
+    budget_expenses_total = Decimal('0.00')
+    category_variances = []
+
+    for b in bud_qs:
+        limit = b.budget_amount or b.monthly_limit or Decimal('0.00')
+        total_budget += limit
+
+        spent_for_b = Expense.objects.filter(
+            user=user,
+            category=b.category,
+            date_spent__year=b.year,
+            date_spent__month=b.month,
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+
+        budget_expenses_total += spent_for_b
+        variance_for_b = limit - spent_for_b
+        pct_used = float(round((spent_for_b / limit * 100), 1)) if limit > 0 else 0.0
+
+        category_variances.append({
+            'id': b.id,
+            'category_id': b.category.id if b.category else None,
+            'category_name': b.category.name if b.category else 'Uncategorized',
+            'budget_limit': str(limit),
+            'spent': str(spent_for_b),
+            'variance': str(variance_for_b),
+            'pct_used': pct_used,
+            'status': 'OVER_BUDGET' if spent_for_b > limit else 'UNDER_BUDGET',
+            'month': b.month,
+            'year': b.year,
+        })
+
+    remaining_budget = total_budget - budget_expenses_total
 
     return {
         'total_income': total_income,
         'total_expense': total_expense,
         'current_balance': current_balance,
         'total_savings': total_savings,
+        'total_budget': total_budget,
+        'budget_expenses_total': budget_expenses_total,
         'remaining_budget': remaining_budget,
+        'category_variances': category_variances,
         'Total Income': total_income,
         'Total Expense': total_expense,
         'Current Balance': current_balance,
         'Total Savings': total_savings,
+        'Total Budget': total_budget,
+        'Budget Expenses Total': budget_expenses_total,
         'Remaining Budget': remaining_budget,
+        'Category Variances': category_variances,
     }
 
 
-def get_category_analysis_dict(user):
+def get_category_analysis_dict(user, month=0, year=0):
     expenses = Expense.objects.filter(user=user)
+    if year and year > 0:
+        expenses = expenses.filter(date_spent__year=year)
+    if month and month > 0:
+        expenses = expenses.filter(date_spent__month=month)
+
     category_totals = (
         expenses.values('category__name')
         .annotate(total=Sum('amount'))
@@ -81,20 +139,53 @@ def get_monthly_trend_dict(user):
     return monthly_data
 
 
+def get_monthly_income_expense_trend(user, year=0):
+    inc_qs = Income.objects.filter(user=user)
+    exp_qs = Expense.objects.filter(user=user)
+    if year and year > 0:
+        inc_qs = inc_qs.filter(income_date__year=year)
+        exp_qs = exp_qs.filter(date_spent__year=year)
+
+    inc_grouped = inc_qs.values('income_date__month').annotate(total=Sum('amount'))
+    exp_grouped = exp_qs.values('date_spent__month').annotate(total=Sum('amount'))
+
+    inc_map = {item['income_date__month']: item['total'] for item in inc_grouped if item['income_date__month']}
+    exp_map = {item['date_spent__month']: item['total'] for item in exp_grouped if item['date_spent__month']}
+
+    trend = []
+    for m_num in range(1, 13):
+        m_name = MONTH_NAMES[m_num]
+        inc_amt = inc_map.get(m_num, Decimal('0.00')) or Decimal('0.00')
+        exp_amt = exp_map.get(m_num, Decimal('0.00')) or Decimal('0.00')
+        trend.append({
+            'month': m_name,
+            'month_num': m_num,
+            'income': str(inc_amt),
+            'expense': str(exp_amt),
+            'net': str(inc_amt - exp_amt)
+        })
+    return trend
+
+
+
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def financial_summary(request):
     """
     Task 2 - Financial Summary API
-    Returns:
-      - Total Income
-      - Total Expense
-      - Current Balance = Total Income - Total Expense
-      - Total Savings
-      - Remaining Budget
     """
     user = request.user
-    summary_data = get_financial_summary_dict(user)
+    month = 0
+    year = 0
+    try:
+        if request.query_params.get('month'):
+            month = int(request.query_params.get('month'))
+        if request.query_params.get('year'):
+            year = int(request.query_params.get('year'))
+    except (ValueError, TypeError):
+        pass
+
+    summary_data = get_financial_summary_dict(user, month=month, year=year)
     return Response(summary_data)
 
 
@@ -103,41 +194,34 @@ def financial_summary(request):
 def category_expense_analysis(request):
     """
     Task 3 - Category-wise Expense Analysis API
-    Groups expenses by category and calculates total spending for each category.
-    Example:
-      Food -> 4500
-      Shopping -> 7200
-      Travel -> 1800
-      Education -> 900
     """
     user = request.user
-    expenses = Expense.objects.filter(user=user)
+    month = 0
+    year = 0
+    try:
+        if request.query_params.get('month'):
+            month = int(request.query_params.get('month'))
+        if request.query_params.get('year'):
+            year = int(request.query_params.get('year'))
+    except (ValueError, TypeError):
+        pass
 
-    category_totals = (
-        expenses.values('category__name')
-        .annotate(total=Sum('amount'))
-        .order_by('-total')
-    )
-
-    result_dict = {}
-    result_list = []
-
-    for item in category_totals:
-        name = item['category__name'] or 'Uncategorized'
-        amount = item['total'] or Decimal('0.00')
-        result_dict[name] = amount
-        result_list.append({
+    cat_dict = get_category_analysis_dict(user, month=month, year=year)
+    result_list = [
+        {
             'category': name,
             'category_name': name,
-            'total_expense': amount,
-            'total': amount,
-        })
+            'total_expense': amt,
+            'total': amt,
+        }
+        for name, amt in cat_dict.items()
+    ]
 
     fmt = (request.query_params.get('type') or request.query_params.get('as_list') or request.query_params.get('view') or request.query_params.get('format_type') or '').lower()
     if fmt in ('list', 'array', '1', 'true'):
         return Response(result_list)
 
-    return Response(result_dict)
+    return Response(cat_dict)
 
 
 @api_view(['GET'])
@@ -145,12 +229,6 @@ def category_expense_analysis(request):
 def monthly_expense_trend(request):
     """
     Task 4 - Monthly Expense Trend API
-    Groups expenses month-wise.
-    Example:
-      January -> 8500
-      February -> 7600
-      March -> 9100
-      April -> 6900
     """
     user = request.user
     expenses = Expense.objects.filter(user=user)
@@ -190,11 +268,6 @@ def monthly_expense_trend(request):
 def expense_extremes_analysis(request):
     """
     Task 5 - Highest & Lowest Expense API
-    Returns:
-      - Highest Expense
-      - Lowest Expense
-      - Latest Expense
-      - Oldest Expense
     """
     user = request.user
     expenses = Expense.objects.filter(user=user)
@@ -220,33 +293,44 @@ def expense_extremes_analysis(request):
 @permission_classes([permissions.IsAuthenticated])
 def unified_dashboard_api(request):
     """
-    Task 6 - Dashboard API
-    Combines everything into one Dashboard API response:
-      - Financial Summary
-      - Category-wise Analysis
-      - Monthly Trend
-      - Recent Transactions
-      - Latest Notifications
-      - Active Savings Goals
+    Task 6 - Dashboard API (Filtered by month and year query params)
     """
     user = request.user
 
+    month = 0
+    year = 0
+    try:
+        if request.query_params.get('month'):
+            month = int(request.query_params.get('month'))
+        if request.query_params.get('year'):
+            year = int(request.query_params.get('year'))
+    except (ValueError, TypeError):
+        pass
+
     # 1. Financial Summary
-    fin_summary = get_financial_summary_dict(user)
+    fin_summary = get_financial_summary_dict(user, month=month, year=year)
 
     # 2. Category-wise Analysis
-    cat_analysis = get_category_analysis_dict(user)
+    cat_analysis = get_category_analysis_dict(user, month=month, year=year)
     expenses_by_cat = [
         {'category__name': cat, 'total': amt}
         for cat, amt in cat_analysis.items()
     ]
 
-    # 3. Monthly Trend
+    # 3. Monthly Trend & Comparison
     monthly_trend = get_monthly_trend_dict(user)
+    monthly_comparison = get_monthly_income_expense_trend(user, year=year)
 
-    # 4. Recent Transactions
+    # 4. Filtered Recent Transactions
     incomes = Income.objects.filter(user=user)
     expenses = Expense.objects.filter(user=user)
+
+    if year and year > 0:
+        incomes = incomes.filter(income_date__year=year)
+        expenses = expenses.filter(date_spent__year=year)
+    if month and month > 0:
+        incomes = incomes.filter(income_date__month=month)
+        expenses = expenses.filter(date_spent__month=month)
 
     recent_txs = []
     for inc in incomes.order_by('-income_date', '-created_at')[:5]:
@@ -297,7 +381,7 @@ def unified_dashboard_api(request):
         for g in goals
     ]
 
-    # 7. Highest & Lowest Expenses
+    # 7. Highest & Lowest Expenses for period
     highest_exp = serialize_expense(expenses.order_by('-amount', '-date_spent').first())
     lowest_exp = serialize_expense(expenses.order_by('amount', 'date_spent').first())
     latest_exp = serialize_expense(expenses.order_by('-date_spent', '-created_at').first())
@@ -320,6 +404,8 @@ def unified_dashboard_api(request):
 
         'monthly_trend': monthly_trend,
         'Monthly Trend': monthly_trend,
+        'monthly_comparison': monthly_comparison,
+        'Monthly Comparison': monthly_comparison,
 
         'recent_transactions': recent_txs,
         'Recent Transactions': recent_txs,
@@ -337,10 +423,15 @@ def unified_dashboard_api(request):
         'total_expense': str(fin_summary['total_expense']),
         'current_balance': str(fin_summary['current_balance']),
         'total_savings': str(fin_summary['total_savings']),
-        'total_budget': str(Budget.objects.filter(user=user).aggregate(total=Sum('budget_amount'))['total'] or Decimal('0.00')),
+        'total_budget': str(fin_summary['total_budget']),
+        'budget_expenses_total': str(fin_summary['budget_expenses_total']),
         'remaining_budget': str(fin_summary['remaining_budget']),
+        'category_variances': fin_summary['category_variances'],
+        'budget_variances': fin_summary['category_variances'],
         'expenses_by_category': expenses_by_cat,
         'has_any_data': has_any_data,
+        'month': month,
+        'year': year,
     }
 
     return Response(payload)

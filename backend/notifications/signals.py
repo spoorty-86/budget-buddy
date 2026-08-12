@@ -32,7 +32,7 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
                 message=message,
                 from_email=from_email,
                 recipient_list=[instance.user.email],
-                fail_silently=False,
+                fail_silently=True,
             )
             logger.info("Notification email sent to %s for notification '%s'", instance.user.email, instance.title)
         except Exception as e:

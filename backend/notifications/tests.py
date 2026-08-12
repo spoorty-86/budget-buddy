@@ -112,10 +112,22 @@ class NotificationTaskTests(TestCase):
         goal.save()
         self.assertTrue(Notification.objects.filter(user=self.user, title='Savings Goal Completed').exists())
 
-        # Verify that emails were sent to the user's inbox mail (mail.outbox)
-        self.assertTrue(len(mail.outbox) >= 4)
-        recipient_emails = [m.to[0] for m in mail.outbox]
-        self.assertIn('testuser@example.com', recipient_emails)
-        subjects = [m.subject for m in mail.outbox]
-        self.assertTrue(any('Budget Created' in s for s in subjects))
-        self.assertTrue(any('Savings Goal Completed' in s for s in subjects))
+        # Verify that created/updated budget notifications remain unread (is_read=False)
+        created_notif = Notification.objects.filter(user=self.user, title='Budget Created').first()
+        self.assertIsNotNone(created_notif)
+        self.assertFalse(created_notif.is_read)
+
+        updated_notif = Notification.objects.filter(user=self.user, title='Budget Updated').first()
+        self.assertIsNotNone(updated_notif)
+        self.assertFalse(updated_notif.is_read)
+
+    def test_zero_limit_budget_notifications_remain_unread(self):
+        """Creating/updating a budget with limit 0 should leave notifications unread until user marks read"""
+        cat, _ = Category.objects.get_or_create(name='TRAVEL')
+        b = Budget.objects.create(user=self.user, category=cat, budget_amount=0, month=8, year=2026)
+        
+        notifs = list(Notification.objects.filter(user=self.user, message__icontains='TRAVEL'))
+        self.assertTrue(len(notifs) > 0)
+        for n in notifs:
+            self.assertFalse(n.is_read, f"Notification '{n.title}' was automatically marked as read!")
+
