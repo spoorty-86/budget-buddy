@@ -197,6 +197,13 @@ if CSRF_TRUSTED_ORIGINS_ENV:
 
 CORS_ALLOW_CREDENTIALS = True
 
+from corsheaders.defaults import default_headers
+
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'bypass-tunnel-reminder',
+    'ngrok-skip-browser-warning',
+]
+
 # Production SSL / HTTPS Reverse Proxy Settings (Render / AWS)
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

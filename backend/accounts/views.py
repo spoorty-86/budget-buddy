@@ -3,6 +3,7 @@ from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .models import Profile
 from .serializers import RegisterSerializer, ProfileSerializer, PasswordResetSerializer
 from notifications.models import Notification as UserNotification
 
@@ -31,7 +32,8 @@ class MeView(generics.RetrieveUpdateAPIView):
     serializer_class = ProfileSerializer
 
     def get_object(self):
-        return self.request.user.profile
+        profile, _ = Profile.objects.get_or_create(user=self.request.user)
+        return profile
 
 
 class PasswordResetView(APIView):
