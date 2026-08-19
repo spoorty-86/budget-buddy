@@ -175,9 +175,10 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage" if (HAS_WHITENOISE and not DEBUG) else "django.contrib.staticfiles.storage.StaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage" if (HAS_WHITENOISE and not DEBUG) else "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
+WHITENOISE_MANIFEST_STRICT = False
 
 # ---- BudgetBuddy custom settings & production CORS/CSRF/SSL configuration ----
 CORS_ALLOWED_ORIGINS_ENV = os.environ.get('CORS_ALLOWED_ORIGINS', '')
