@@ -33,8 +33,9 @@ api.interceptors.response.use(
         } catch (e) {
           refreshing = null
           localStorage.removeItem('access')
-          localStorage.removeItem('refresh')
-          window.location.href = '/login'
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login'
+          }
         }
       }
     }

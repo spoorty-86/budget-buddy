@@ -42,7 +42,7 @@ allowed_hosts_env = os.environ.get('ALLOWED_HOSTS', '')
 if allowed_hosts_env:
     ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(',') if host.strip()]
 else:
-    ALLOWED_HOSTS = ['*'] if DEBUG else []
+    ALLOWED_HOSTS = ['.onrender.com', 'localhost', '127.0.0.1'] if not DEBUG else ['*']
 
 
 # Application definition
@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     'notifications',
     'analytics',
     'reports',
+    'ai',
 ]
 
 try:
@@ -185,15 +186,16 @@ STORAGES = {
 
 # ---- BudgetBuddy custom settings & production CORS/CSRF/SSL configuration ----
 CORS_ALLOWED_ORIGINS_ENV = os.environ.get('CORS_ALLOWED_ORIGINS', '')
-if CORS_ALLOWED_ORIGINS_ENV:
-    CORS_ALLOWED_ORIGINS = [origin.strip() for origin in CORS_ALLOWED_ORIGINS_ENV.split(',') if origin.strip()]
+parsed_origins = [o.strip() for o in CORS_ALLOWED_ORIGINS_ENV.split(',') if o.strip() and o.strip() != '*']
+if parsed_origins:
+    CORS_ALLOWED_ORIGINS = parsed_origins
     CORS_ALLOW_ALL_ORIGINS = False
 else:
-    CORS_ALLOW_ALL_ORIGINS = os.environ.get('CORS_ALLOW_ALL_ORIGINS', 'True').lower() in ('true', '1', 'yes')
+    CORS_ALLOW_ALL_ORIGINS = True
 
-CSRF_TRUSTED_ORIGINS_ENV = os.environ.get('CSRF_TRUSTED_ORIGINS', CORS_ALLOWED_ORIGINS_ENV)
+CSRF_TRUSTED_ORIGINS_ENV = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
 if CSRF_TRUSTED_ORIGINS_ENV:
-    CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in CSRF_TRUSTED_ORIGINS_ENV.split(',') if origin.strip()]
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in CSRF_TRUSTED_ORIGINS_ENV.split(',') if o.strip() and (o.startswith('http://') or o.startswith('https://'))]
 
 CORS_ALLOW_CREDENTIALS = True
 

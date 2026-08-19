@@ -13,6 +13,8 @@ import SavingsGoals from './pages/SavingsGoals'
 import Notifications from './pages/Notifications'
 import Reports from './pages/Reports'
 import Profile from './pages/Profile'
+import AIPortal from './pages/AIPortal'
+import Settings from './pages/Settings'
 
 function RequireAuth({ children }) {
   const { profile, ready } = useAuth()
@@ -50,6 +52,8 @@ export default function App() {
         <Route path="notifications" element={<Notifications />} />
         <Route path="reports" element={<Reports />} />
         <Route path="profile" element={<Profile />} />
+        <Route path="ai-portal" element={<AIPortal />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

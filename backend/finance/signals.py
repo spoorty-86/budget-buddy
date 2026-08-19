@@ -18,7 +18,7 @@ def calculate_budget_utilization(budget):
         date_spent__year=budget.year,
     ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
-    budget_amt = budget.budget_amount or budget.monthly_limit or Decimal('0.00')
+    budget_amt = Decimal(str(budget.budget_amount or budget.monthly_limit or '0.00'))
     if budget_amt > 0:
         utilization_pct = float((total_expense / budget_amt) * Decimal('100.0'))
     else:

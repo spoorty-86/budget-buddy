@@ -47,7 +47,7 @@ class ProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Profile
-        fields = ['id', 'username', 'email', 'full_name', 'currency', 'monthly_income_target', 'created_at']
+        fields = ['id', 'username', 'email', 'full_name', 'currency', 'monthly_income_target', 'avatar', 'created_at']
 
 
 class PasswordResetSerializer(serializers.Serializer):
