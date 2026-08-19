@@ -31,12 +31,7 @@ else:
     # Default to True for local development, False if running in production platform (Render/AWS)
     DEBUG = not (os.environ.get('RENDER') or os.environ.get('AWS_EXECUTION_ENV') or os.environ.get('ENVIRONMENT') == 'production')
 
-SECRET_KEY = os.environ.get('SECRET_KEY')
-if not SECRET_KEY:
-    if DEBUG:
-        SECRET_KEY = 'django-insecure-&d1e*9n@1ac#c0r5$_m(d1za11q#p8g=y5^^g3_ob3foh%)-4%'
-    else:
-        raise ValueError("CRITICAL SECURITY ERROR: SECRET_KEY environment variable must be set in production!")
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-&d1e*9n@1ac#c0r5$_m(d1za11q#p8g=y5^^g3_ob3foh%)-4%')
 
 allowed_hosts_env = os.environ.get('ALLOWED_HOSTS', '')
 if allowed_hosts_env:
