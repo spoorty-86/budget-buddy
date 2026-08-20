@@ -63,3 +63,25 @@ class PasswordResetSerializer(serializers.Serializer):
         if attrs['new_password'] != attrs['confirm_password']:
             raise serializers.ValidationError({'confirm_password': 'Passwords do not match.'})
         return attrs
+
+
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from django.db.models import Q
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """
+    Custom SimpleJWT serializer that allows logging in using either:
+    - Username (case-insensitive)
+    - Email address (case-insensitive)
+    """
+    def validate(self, attrs):
+        login_id = attrs.get(self.username_field, '').strip()
+        if login_id:
+            user_obj = User.objects.filter(
+                Q(username__iexact=login_id) | Q(email__iexact=login_id)
+            ).first()
+            if user_obj:
+                attrs[self.username_field] = user_obj.username
+        return super().validate(attrs)
+
