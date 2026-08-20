@@ -25,6 +25,13 @@ class RegisterView(generics.CreateAPIView):
         try:
             return super().post(request, *args, **kwargs)
         except Exception as exc:
+            if 'no such table' in str(exc).lower():
+                try:
+                    from django.core.management import call_command
+                    call_command('migrate', interactive=False)
+                    return super().post(request, *args, **kwargs)
+                except Exception as m_exc:
+                    exc = m_exc
             tb = traceback.format_exc()
             logger.error("Registration Exception: %s\n%s", exc, tb)
             return Response({
