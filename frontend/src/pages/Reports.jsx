@@ -83,7 +83,17 @@ export default function Reports() {
       a.remove()
       window.URL.revokeObjectURL(url)
     } catch (err) {
-      alert(`Failed to download ${fmt.toUpperCase()} report.`)
+      let errMsg = `Failed to download ${fmt.toUpperCase()} report.`
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text()
+          const json = JSON.parse(text)
+          if (json.detail) errMsg = json.detail
+        } catch (_) {}
+      } else if (err.response?.data?.detail) {
+        errMsg = err.response.data.detail
+      }
+      setError(errMsg)
     } finally {
       setDownloading(false)
     }
