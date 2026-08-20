@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .models import Profile
 from .serializers import RegisterSerializer, ProfileSerializer, PasswordResetSerializer
@@ -16,8 +17,19 @@ import traceback
 logger = logging.getLogger(__name__)
 
 
+class CustomTokenObtainPairView(TokenObtainPairView):
+    """Public token obtain endpoint -- disables authentication check so expired headers don't block login."""
+    authentication_classes = []
+
+
+class CustomTokenRefreshView(TokenRefreshView):
+    """Public token refresh endpoint -- disables authentication check so expired headers don't block refresh."""
+    authentication_classes = []
+
+
 class RegisterView(generics.CreateAPIView):
     """POST /api/auth/register/  -- Milestone 1: user registration"""
+    authentication_classes = []
     permission_classes = [permissions.AllowAny]
     serializer_class = RegisterSerializer
 
@@ -25,6 +37,9 @@ class RegisterView(generics.CreateAPIView):
         try:
             return super().post(request, *args, **kwargs)
         except Exception as exc:
+            from rest_framework.exceptions import APIException
+            if isinstance(exc, APIException):
+                raise exc
             if 'no such table' in str(exc).lower():
                 try:
                     from django.core.management import call_command
@@ -65,6 +80,7 @@ class MeView(generics.RetrieveUpdateAPIView):
 
 class PasswordResetView(APIView):
     """POST /api/auth/password-reset/  -- reset password by username and email"""
+    authentication_classes = []
     permission_classes = [permissions.AllowAny]
     serializer_class = PasswordResetSerializer
 

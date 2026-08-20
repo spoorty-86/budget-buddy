@@ -11,37 +11,57 @@ export function AuthProvider({ children }) {
     try {
       const { data } = await api.get('/api/auth/me/')
       setProfile(data)
-    } catch {
+      return data
+    } catch (err) {
       setProfile(null)
+      localStorage.removeItem('access')
+      localStorage.removeItem('refresh')
+      throw err
     }
   }, [])
 
   useEffect(() => {
     const token = localStorage.getItem('access')
     if (token) {
-      loadProfile().finally(() => setReady(true))
+      loadProfile()
+        .catch(() => {})
+        .finally(() => setReady(true))
     } else {
       setReady(true)
     }
   }, [loadProfile])
 
   async function login(username, password) {
+    // Clear any stale tokens before initiating login
+    localStorage.removeItem('access')
+    localStorage.removeItem('refresh')
+
     const { data } = await api.post('/api/auth/login/', { username, password })
     localStorage.setItem('access', data.access)
     localStorage.setItem('refresh', data.refresh)
-    await loadProfile()
+
+    try {
+      await loadProfile()
+    } catch (err) {
+      localStorage.removeItem('access')
+      localStorage.removeItem('refresh')
+      setProfile(null)
+      throw new Error('Successfully authenticated, but failed to load user profile. Please try signing in again.')
+    }
   }
 
   async function register(payload) {
-    // Register the user
+    // Clear any stale tokens before registering
+    localStorage.removeItem('access')
+    localStorage.removeItem('refresh')
+
     const registerResponse = await api.post('/api/auth/register/', payload)
     // Auto-login after successful registration
     try {
       await login(payload.username, payload.password)
     } catch (err) {
-      // If auto-login fails, at least the user is registered
-      // Re-throw so the component can handle it
-      throw new Error('Registration successful but login failed. Please try logging in manually.')
+      // If auto-login fails, user is registered but needs manual login
+      throw new Error('Registration successful! Please sign in with your new username and password.')
     }
     return registerResponse
   }

@@ -318,6 +318,14 @@ class FinancialSummaryReportView(APIView):
         return Response(data, status=status.HTTP_200_OK)
 
 
+def clean_pdf_cell(text):
+    if text is None:
+        return ''
+    s = str(text).replace('₹', 'Rs. ')
+    import html
+    return html.escape(s)
+
+
 def generate_pdf_report(report_type, headers, rows, start_date, end_date, user):
     import sys, site
     user_site = site.getusersitepackages()
@@ -388,17 +396,17 @@ def generate_pdf_report(report_type, headers, rows, start_date, end_date, user):
     report_title = title_map.get(report_type, 'Financial Report')
 
     elements = []
-    elements.append(Paragraph(f"BudgetBuddy — {report_title}", title_style))
+    elements.append(Paragraph(clean_pdf_cell(f"BudgetBuddy — {report_title}"), title_style))
     user_identifier = getattr(user, 'username', '') or getattr(user, 'email', '') or 'User'
-    elements.append(Paragraph(f"Date Period: {start_date} to {end_date} | Account: {user_identifier}", sub_style))
+    elements.append(Paragraph(clean_pdf_cell(f"Date Period: {start_date} to {end_date} | Account: {user_identifier}"), sub_style))
     elements.append(Spacer(1, 10))
 
     table_data = []
-    hdr_row = [Paragraph(str(h), th_style) for h in headers]
+    hdr_row = [Paragraph(clean_pdf_cell(h), th_style) for h in headers]
     table_data.append(hdr_row)
 
     for r in rows:
-        row_data = [Paragraph(str(cell), td_style) for cell in r]
+        row_data = [Paragraph(clean_pdf_cell(cell), td_style) for cell in r]
         table_data.append(row_data)
 
     num_cols = max(len(headers), 1)
@@ -433,7 +441,7 @@ def generate_pdf_report(report_type, headers, rows, start_date, end_date, user):
         textColor=colors.HexColor('#788b9c'),
         spaceBefore=16
     )
-    elements.append(Paragraph(f"Generated on {datetime.date.today().isoformat()} via BudgetBuddy Financial Platform.", footer_style))
+    elements.append(Paragraph(clean_pdf_cell(f"Generated on {datetime.date.today().isoformat()} via BudgetBuddy Financial Platform."), footer_style))
 
     doc.build(elements)
     pdf_bytes = buffer.getvalue()
@@ -515,7 +523,14 @@ class ExportReportView(APIView):
             return response
 
         if export_format == 'pdf':
-            return generate_pdf_report(report_type, headers, rows, start_date, end_date, request.user)
+            try:
+                return generate_pdf_report(report_type, headers, rows, start_date, end_date, request.user)
+            except Exception as e:
+                logger.exception("PDF generation error: %s", e)
+                return Response(
+                    {"detail": f"Failed to generate PDF report: {str(e)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
         return Response({
             "report_type": report_type,

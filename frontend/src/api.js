@@ -5,9 +5,19 @@ const API_URL = rawApiUrl.replace(/\/+$/, '')
 
 const api = axios.create({ baseURL: API_URL })
 
+const PUBLIC_ENDPOINTS = [
+  '/api/auth/login/',
+  '/api/auth/register/',
+  '/api/auth/refresh/',
+  '/api/auth/password-reset/',
+]
+
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access')
-  if (token) config.headers.Authorization = `Bearer ${token}`
+  const isPublic = PUBLIC_ENDPOINTS.some((url) => config.url?.endsWith(url) || config.url === url)
+  if (!isPublic) {
+    const token = localStorage.getItem('access')
+    if (token) config.headers.Authorization = `Bearer ${token}`
+  }
   config.headers['bypass-tunnel-reminder'] = '1'
   return config
 })
@@ -20,7 +30,9 @@ api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const { config, response } = error
-    if (response?.status === 401 && !config._retried) {
+    const isAuthEndpoint = PUBLIC_ENDPOINTS.some((url) => config?.url?.endsWith(url) || config?.url === url)
+
+    if (response?.status === 401 && !config._retried && !isAuthEndpoint) {
       config._retried = true
       const refresh = localStorage.getItem('refresh')
       if (refresh) {
@@ -34,9 +46,16 @@ api.interceptors.response.use(
         } catch (e) {
           refreshing = null
           localStorage.removeItem('access')
+          localStorage.removeItem('refresh')
           if (window.location.pathname !== '/login') {
             window.location.href = '/login'
           }
+        }
+      } else {
+        localStorage.removeItem('access')
+        localStorage.removeItem('refresh')
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login'
         }
       }
     }
