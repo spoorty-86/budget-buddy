@@ -16,6 +16,9 @@ export function formatApiError(err, fallbackMessage = 'An unexpected error occur
 
   // 2. HTTP Status specific messages
   if (status === 500) {
+    if (data && typeof data === 'object' && data.detail) {
+      return data.detail
+    }
     return 'Internal server error encountered. Please try again later.'
   }
   if (status === 502 || status === 503 || status === 504) {

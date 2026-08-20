@@ -10,10 +10,28 @@ from notifications.models import Notification as UserNotification
 User = get_user_model()
 
 
+import logging
+import traceback
+
+logger = logging.getLogger(__name__)
+
+
 class RegisterView(generics.CreateAPIView):
     """POST /api/auth/register/  -- Milestone 1: user registration"""
     permission_classes = [permissions.AllowAny]
     serializer_class = RegisterSerializer
+
+    def post(self, request, *args, **kwargs):
+        try:
+            return super().post(request, *args, **kwargs)
+        except Exception as exc:
+            tb = traceback.format_exc()
+            logger.error("Registration Exception: %s\n%s", exc, tb)
+            return Response({
+                'detail': f"Server Error: {str(exc)}",
+                'error_type': exc.__class__.__name__,
+                'traceback': tb
+            }, status=500)
 
     def perform_create(self, serializer):
         user = serializer.save()
