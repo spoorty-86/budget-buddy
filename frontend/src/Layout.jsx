@@ -5,6 +5,7 @@ import api from './api'
 
 const LINKS = [
   { to: '/', label: 'Dashboard', icon: '📊', end: true },
+  { to: '/landing', label: 'Welcome Page', icon: '✨' },
   { to: '/ai-portal', label: 'AI Portal', icon: '🤖', badge: 'AI' },
   { to: '/expenses', label: 'Expenses', icon: '💸' },
   { to: '/incomes', label: 'Incomes', icon: '💰' },
