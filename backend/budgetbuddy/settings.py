@@ -222,7 +222,7 @@ REST_FRAMEWORK = {
     ),
 }
 
-default_email_backend = 'django.core.mail.backends.console.EmailBackend' if DEBUG else 'django.core.mail.backends.smtp.EmailBackend'
+default_email_backend = 'django.core.mail.backends.console.EmailBackend' if DEBUG else ('django.core.mail.backends.smtp.EmailBackend' if os.environ.get('EMAIL_HOST') else 'django.core.mail.backends.dummy.EmailBackend')
 EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', default_email_backend)
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'localhost')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 1025))
