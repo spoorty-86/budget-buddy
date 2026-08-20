@@ -17,13 +17,15 @@ class RegisterView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         user = serializer.save()
-        # Creating a UserNotification automatically triggers the email signal
-        UserNotification.objects.create(
-            user=user,
-            title='Welcome to BudgetBuddy',
-            message='Welcome to BudgetBuddy! Your account has been created successfully. You can now log in with your username and password and start managing your budget.',
-            notification_type='SUCCESS',
-        )
+        try:
+            UserNotification.objects.create(
+                user=user,
+                title='Welcome to BudgetBuddy',
+                message='Welcome to BudgetBuddy! Your account has been created successfully. You can now log in with your username and password and start managing your budget.',
+                notification_type='SUCCESS',
+            )
+        except Exception:
+            pass
 
 
 class MeView(generics.RetrieveUpdateAPIView):

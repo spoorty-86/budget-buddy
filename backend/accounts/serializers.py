@@ -37,7 +37,10 @@ class RegisterSerializer(serializers.ModelSerializer):
         full_name = validated_data.pop('full_name', '')
         password = validated_data.pop('password')
         user = User.objects.create_user(password=password, **validated_data)
-        Profile.objects.create(user=user, full_name=full_name)
+        profile, _ = Profile.objects.get_or_create(user=user)
+        if full_name:
+            profile.full_name = full_name
+            profile.save()
         return user
 
 
