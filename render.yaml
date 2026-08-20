@@ -4,11 +4,11 @@ services:
     env: python
     region: singapore
     plan: free
-    buildCommand: "pip install -r backend/requirements.txt -r requirements.txt && python backend/manage.py collectstatic --noinput"
+    buildCommand: "pip install -r backend/requirements.txt && python backend/manage.py collectstatic --noinput"
     startCommand: "python backend/manage.py migrate && gunicorn --chdir backend budgetbuddy.wsgi:application --bind 0.0.0.0:$PORT"
     envVars:
       - key: PYTHONPATH
-        value: "backend:."
+        value: "backend"
       - key: DEBUG
         value: "False"
       - key: SECRET_KEY
