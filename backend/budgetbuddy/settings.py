@@ -33,11 +33,7 @@ else:
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-&d1e*9n@1ac#c0r5$_m(d1za11q#p8g=y5^^g3_ob3foh%)-4%')
 
-allowed_hosts_env = os.environ.get('ALLOWED_HOSTS', '')
-if allowed_hosts_env:
-    ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(',') if host.strip()]
-else:
-    ALLOWED_HOSTS = ['.onrender.com', 'localhost', '127.0.0.1'] if not DEBUG else ['*']
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -183,14 +179,7 @@ STORAGES = {
 WHITENOISE_MANIFEST_STRICT = False
 
 # ---- BudgetBuddy custom settings & production CORS/CSRF/SSL configuration ----
-CORS_ALLOWED_ORIGINS_ENV = os.environ.get('CORS_ALLOWED_ORIGINS', '')
-parsed_origins = [o.strip() for o in CORS_ALLOWED_ORIGINS_ENV.split(',') if o.strip() and o.strip() != '*']
-if parsed_origins:
-    CORS_ALLOWED_ORIGINS = parsed_origins
-    CORS_ALLOW_ALL_ORIGINS = False
-else:
-    CORS_ALLOW_ALL_ORIGINS = True
-
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://.*\.vercel\.app$",
     r"^https://.*\.onrender\.com$",
