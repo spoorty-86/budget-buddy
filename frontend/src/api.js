@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const rawApiUrl = import.meta.env.VITE_API_URL || ''
+const rawApiUrl = import.meta.env.VITE_API_URL || 'https://budgetbuddy-backend-es1w.onrender.com'
 const API_URL = rawApiUrl.replace(/\/+$/, '')
 
 const api = axios.create({ baseURL: API_URL })
