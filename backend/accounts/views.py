@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .models import Profile
-from .serializers import RegisterSerializer, ProfileSerializer, PasswordResetSerializer
+from .serializers import RegisterSerializer, ProfileSerializer, PasswordResetSerializer, CustomTokenObtainPairSerializer
 from notifications.models import Notification as UserNotification
 
 User = get_user_model()
@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 class CustomTokenObtainPairView(TokenObtainPairView):
     """Public token obtain endpoint -- disables authentication check so expired headers don't block login."""
     authentication_classes = []
+    serializer_class = CustomTokenObtainPairSerializer
 
 
 class CustomTokenRefreshView(TokenRefreshView):
