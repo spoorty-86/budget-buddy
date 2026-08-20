@@ -7,6 +7,8 @@ services:
     buildCommand: "pip install -r requirements.txt && python manage.py collectstatic --noinput"
     startCommand: "python manage.py migrate && gunicorn budgetbuddy.wsgi:application --bind 0.0.0.0:$PORT"
     envVars:
+      - key: PYTHONPATH
+        value: ".:backend"
       - key: DEBUG
         value: "False"
       - key: SECRET_KEY
