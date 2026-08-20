@@ -194,64 +194,97 @@ def generate_ai_chat_response(user, prompt, history=None):
 
     # 2. Rule-Based Intelligent Fallback AI Engine
     p_lower = prompt.lower().strip()
+    p_clean = re.sub(r'[^\w\s\.\,₹\$]', ' ', p_lower).strip()
 
-    # Conversational Intent A: "how are you", "how are u", "how do you do"
-    if any(k in p_lower for k in ['how are you', 'how are u', 'how do you do', 'how is it going', 'how are things', 'how r u']):
-        reply = f"I'm doing great, thank you for asking! 😊 I'm here and ready to help you analyze your spending, check budget limits, or track your savings goals. How can I assist you today, {context['user_name']}?"
-        return {'reply': reply, 'source': 'BudgetBuddy AI', 'context_summary': {}}
+    # Intent 1: Affordability / Purchase Query ("Can I afford a ₹1,000 purchase?")
+    if any(k in p_clean for k in ['can i afford', 'can i buy', 'afford', 'should i buy', 'should i purchase', 'affordability']):
+        prompt_no_comma = prompt.replace(',', '')
+        match = re.search(r'(?:₹|rs\.?|\$)?\s*(\d+(?:\.\d{1,2})?)', prompt_no_comma, re.IGNORECASE)
+        item_cost = float(match.group(1)) if match else 1000.0
 
-    # Conversational Intent B: Greetings ("hi", "hello", "hey", "good morning")
-    elif p_lower in ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 'greetings'] or any(p_lower.startswith(k) for k in ['hi ', 'hello ', 'hey ']):
-        reply = f"Hello {context['user_name']}! 👋 How can I assist you with your finances today?"
-        return {'reply': reply, 'source': 'BudgetBuddy AI', 'context_summary': {}}
-
-    # Conversational Intent C: Identity ("who are you", "what are you", "what can you do")
-    elif any(k in p_lower for k in ['who are you', 'what are you', 'what can you do', 'your name', 'about you']):
-        reply = f"I am your BudgetBuddy AI Financial Companion! 🤖\n\nI can help you:\n• Track your income, expenses, and net savings\n• Audit category spending and budget limits\n• Answer affordability questions\n• Parse natural language expenses and simulate savings goals."
-        return {'reply': reply, 'source': 'BudgetBuddy AI', 'context_summary': {}}
-
-    # Conversational Intent D: Gratitude ("thank you", "thanks", "awesome")
-    elif any(k in p_lower for k in ['thank you', 'thanks', 'thx', 'awesome', 'great job', 'perfect', 'thank u']):
-        reply = f"You're very welcome, {context['user_name']}! 😊 Let me know if you need any more financial insights!"
-        return {'reply': reply, 'source': 'BudgetBuddy AI', 'context_summary': {}}
-
-    # Financial Intent 1: Direct Saved / Net Savings Question
-    elif any(k in p_lower for k in ['how much i saved', 'how much saved', 'amount i saved', 'amount saved', 'total saved', 'my savings', 'saved amount', 'net savings', 'how much did i save', 'saved this month', 'how much save']):
-        reply = f"💰 You have saved **₹{context['net_savings']:.2f}** this month (Savings Rate: **{context['savings_rate']}%**)."
-        if context['total_goals_saved'] > 0:
-            reply += f"\n🏦 Total saved across Savings Goals: **₹{context['total_goals_saved']:.2f}**."
+        if item_cost <= context['net_savings']:
+            remaining_after = context['net_savings'] - item_cost
+            reply = (
+                f"👍 **Purchase Analysis for {context['user_name']}**:\n\n"
+                f"Yes! Based on your current net savings of **₹{context['net_savings']:.2f}**, you can afford a **₹{item_cost:,.2f}** purchase.\n\n"
+                f"• **Current Net Savings**: ₹{context['net_savings']:.2f}\n"
+                f"• **Purchase Amount**: ₹{item_cost:,.2f}\n"
+                f"• **Remaining Net Balance After**: ₹{remaining_after:.2f}"
+            )
+        else:
+            shortfall = item_cost - context['net_savings']
+            reply = (
+                f"⚠️ **Caution Recommended for {context['user_name']}**:\n\n"
+                f"Buying a **₹{item_cost:,.2f}** item right now exceeds your current net savings by **₹{shortfall:.2f}**.\n\n"
+                f"• **Current Net Savings**: ₹{context['net_savings']:.2f}\n"
+                f"• **Purchase Amount**: ₹{item_cost:,.2f}\n"
+                f"• **Shortfall**: ₹{shortfall:.2f}\n\n"
+                f"💡 **AI Suggestion**: Consider saving for another month or creating a dedicated **Savings Goal** for this purchase!"
+            )
         return {'reply': reply, 'source': 'BudgetBuddy Financial Intelligence Engine', 'context_summary': {'net_savings': context['net_savings']}}
 
-    # Financial Intent 2: Direct Income Question
-    elif any(k in p_lower for k in ['income', 'salary', 'how much i earned', 'total earnings', 'earned this month', 'how much income']):
-        reply = f"💵 Your total income for this month is **₹{context['total_income']:.2f}**."
-        return {'reply': reply, 'source': 'BudgetBuddy Financial Intelligence Engine', 'context_summary': {'total_income': context['total_income']}}
-
-    # Financial Intent 3: Direct Expense / Spending Question
-    elif any(k in p_lower for k in ['total expense', 'total spent', 'how much spent', 'how much i spent', 'total spending', 'total expenditure']):
-        reply = f"💸 Your total spending for this month is **₹{context['total_expense']:.2f}**."
-        if context['category_breakdown']:
-            top_cat = max(context['category_breakdown'], key=context['category_breakdown'].get)
-            reply += f"\n📊 Highest spending category: **{top_cat}** (₹{context['category_breakdown'][top_cat]:.2f})."
-        return {'reply': reply, 'source': 'BudgetBuddy Financial Intelligence Engine', 'context_summary': {'total_expense': context['total_expense']}}
-
-    # Financial Intent 4: High Expense / Spending Check
-    elif any(k in p_lower for k in ['highest', 'top spending', 'where does my money go', 'spend most', 'categories', 'category']):
+    # Intent 2: Highest Spending / "Where am I spending the most?"
+    elif any(k in p_clean for k in ['spending the most', 'spend the most', 'spending most', 'spend most', 'highest spending', 'highest expense', 'where does my money go', 'top spending', 'highest category', 'where am i spending', 'where spending']):
         if not context['category_breakdown']:
             reply = f"Hi {context['user_name']}! You haven't recorded any expenses for this month yet. Add your expenses to see detailed category analysis!"
         else:
             top_cat = max(context['category_breakdown'], key=context['category_breakdown'].get)
             top_amt = context['category_breakdown'][top_cat]
             pct = round((top_amt / context['total_expense'] * 100), 1) if context['total_expense'] > 0 else 0
+            
+            cat_list_str = "\n".join([f"• **{cat}**: ₹{amt:.2f} ({round(amt/context['total_expense']*100, 1)}%)" for cat, amt in context['category_breakdown'].items()])
+            
             reply = (
                 f"📊 **Spending Analysis for {context['user_name']}**:\n\n"
-                f"Your highest spending category this month is **{top_cat}** at **₹{top_amt:.2f}**, which represents **{pct}%** of your total monthly expenditure (₹{context['total_expense']:.2f}).\n\n"
-                f"💡 **Recommendation**: Setting a strict limit in the **Budgets** section for `{top_cat}` could save you roughly **₹{(top_amt * 0.15):.2f}** per month!"
+                f"Your highest spending category this month is **{top_cat}** at **₹{top_amt:.2f}**, which accounts for **{pct}%** of your total expenses (₹{context['total_expense']:.2f}).\n\n"
+                f"**Category Breakdown**:\n{cat_list_str}\n\n"
+                f"💡 **Recommendation**: Setting a budget limit for `{top_cat}` could save you roughly **₹{(top_amt * 0.15):.2f}** per month!"
             )
         return {'reply': reply, 'source': 'BudgetBuddy Financial Intelligence Engine', 'context_summary': {'top_category': top_cat if context['category_breakdown'] else None}}
 
-    # Financial Intent 5: Budget Status & Over-spending
-    elif any(k in p_lower for k in ['budget', 'overbudget', 'limit', 'spending limit', 'am i spending too much']):
+    # Intent 3: Savings Goals / "How are my savings goals doing?"
+    elif any(k in p_clean for k in ['savings goal', 'savings goals', 'goal status', 'my goals', 'how are my goals', 'goals doing', 'savings target', 'goal progress']):
+        if not context['goals']:
+            reply = (
+                f"Hi {context['user_name']}! You currently have no active savings goals set up.\n\n"
+                f"🎯 **AI Suggestion**: Setting savings goals (e.g. Emergency Fund, Vacation, New Laptop) helps you build wealth systematically. Head to **Savings Goals** to add your first target!"
+            )
+        else:
+            goal_summaries = []
+            for g in context['goals']:
+                goal_summaries.append(f"• **{g['name']}**: ₹{g['saved_amount']:.2f} saved of ₹{g['target_amount']:.2f} target (**{g['progress_pct']}%** completed)")
+            goals_text = "\n".join(goal_summaries)
+            
+            reply = (
+                f"🏦 **Savings Goals Overview for {context['user_name']}**:\n\n"
+                f"{goals_text}\n\n"
+                f"• **Total Target**: ₹{context['total_goals_target']:.2f}\n"
+                f"• **Total Saved**: ₹{context['total_goals_saved']:.2f}\n"
+                f"• **Overall Goal Progress**: {round((context['total_goals_saved'] / context['total_goals_target'] * 100), 1) if context['total_goals_target'] > 0 else 0}%\n\n"
+                f"🌟 Keep up the consistent progress toward your targets!"
+            )
+        return {'reply': reply, 'source': 'BudgetBuddy Financial Intelligence Engine', 'context_summary': {'total_goals_saved': context['total_goals_saved']}}
+
+    # Intent 4: Tips / Advice / "Give me 3 tips to cut monthly expenses"
+    elif any(k in p_clean for k in ['tip', 'tips', 'cut expense', 'cut expenses', 'reduce spending', 'reduce expense', 'how to save', 'save money', 'advice', 'recommendation', 'savings tips']):
+        top_cat_name = "your top spending category"
+        top_amt = 0
+        if context['category_breakdown']:
+            top_cat_name, top_amt = max(context['category_breakdown'].items(), key=lambda x: x[1])
+
+        reply = (
+            f"💡 **3 Actionable Tips to Cut Monthly Expenses for {context['user_name']}**:\n\n"
+            f"1️⃣ **Audit Category Spending (`{top_cat_name}`)**:\n"
+            f"   You spent ₹{top_amt:.2f} on `{top_cat_name}` this month. Try setting a budget limit 15% lower next month to immediately save **₹{(top_amt * 0.15):.2f}**.\n\n"
+            f"2️⃣ **Enforce the 50/30/20 Rule**:\n"
+            f"   Allocate 50% of income to Needs, 30% to Wants, and 20% to Savings. Your current savings rate is **{context['savings_rate']}%**.\n\n"
+            f"3️⃣ **Automate Savings Goals**:\n"
+            f"   Transfer your monthly savings directly to your active **Savings Goals** at the start of the month before discretionary spending."
+        )
+        return {'reply': reply, 'source': 'BudgetBuddy AI Financial Advisor', 'context_summary': {}}
+
+    # Intent 5: Budget Status / "Check my budget limits status"
+    elif any(k in p_clean for k in ['budget limit', 'budget limits', 'budget status', 'check my budget', 'budget check', 'overbudget', 'am i over budget', 'budget']):
         if not context['budgets']:
             reply = (
                 f"Hi {context['user_name']}! You don't have any budget limits set up for this month.\n\n"
@@ -259,91 +292,71 @@ def generate_ai_chat_response(user, prompt, history=None):
             )
         else:
             over = [b for b in context['budgets'] if b['is_over']]
+            bud_details = "\n".join([f"• **{b['category']}**: Spent ₹{b['spent']:.2f} / Limit ₹{b['limit']:.2f} ({b['pct_used']}%)" for b in context['budgets']])
+            
             if over:
-                over_names = ", ".join([f"**{b['category']}** (₹{b['spent']:.2f} / ₹{b['limit']:.2f})" for b in over])
                 reply = (
-                    f"⚠️ **Budget Alert for {context['user_name']}**:\n\n"
-                    f"You have exceeded your budget in **{len(over)} category/categories**:\n"
-                    f"• {over_names}\n\n"
-                    f"Total monthly budget limit: **₹{context['total_budget_limit']:.2f}** | Total Spent: **₹{context['total_expense']:.2f}**."
+                    f"⚠️ **Budget Limit Status for {context['user_name']}**:\n\n"
+                    f"You have exceeded your budget limit in **{len(over)} category/categories**!\n\n"
+                    f"**Budget Breakdown**:\n{bud_details}\n\n"
+                    f"Total Budgeted Limit: **₹{context['total_budget_limit']:.2f}** | Total Spent: **₹{context['total_expense']:.2f}**."
                 )
             else:
                 reply = (
                     f"✅ **Great job, {context['user_name']}!** All your budgets are currently within limits.\n\n"
+                    f"**Budget Breakdown**:\n{bud_details}\n\n"
                     f"Total Budgeted Limit: **₹{context['total_budget_limit']:.2f}** | Total Spent: **₹{context['total_expense']:.2f}**.\n"
                     f"You have **₹{(context['total_budget_limit'] - context['total_expense']):.2f}** remaining across your budgeted categories."
                 )
         return {'reply': reply, 'source': 'BudgetBuddy Financial Intelligence Engine', 'context_summary': {'over_budget_count': context['over_budget_count']}}
 
-    # Financial Intent 6: Savings Goals & Progress
-    elif any(k in p_lower for k in ['savings', 'goal', 'vacation', 'emergency fund', 'save more', 'target']):
-        if not context['goals']:
-            reply = (
-                f"Hi {context['user_name']}! You currently have no active savings goals.\n\n"
-                f"🎯 **AI Suggestion**: Creating savings goals (e.g. Emergency Fund, Vacation, New Car) helps keep you motivated. Try creating one in **Savings Goals**!"
-            )
-        else:
-            goal_summaries = []
-            for g in context['goals']:
-                goal_summaries.append(f"• **{g['name']}**: ₹{g['saved_amount']:.2f} of ₹{g['target_amount']:.2f} ({g['progress_pct']}%)")
-            goals_text = "\n".join(goal_summaries)
-            
-            rate_advice = ""
-            if context['savings_rate'] < 20:
-                rate_advice = f"\n\n💡 **Boost Strategy**: Your current savings rate is **{context['savings_rate']}%**. Financial experts recommend striving for a 20% savings rate (₹{(context['total_income'] * 0.2):.2f}/mo)."
-            else:
-                rate_advice = f"\n\n🌟 **Awesome Work**: Your current savings rate is a healthy **{context['savings_rate']}%**!"
-
-            reply = (
-                f"🏦 **Savings Goals Overview**:\n\n"
-                f"{goals_text}{rate_advice}\n\n"
-                f"Your total saved across all goals is **₹{context['total_goals_saved']:.2f}** out of **₹{context['total_goals_target']:.2f}** target."
-            )
-        return {'reply': reply, 'source': 'BudgetBuddy Financial Intelligence Engine', 'context_summary': {'total_goals_saved': context['total_goals_saved']}}
-
-    # Financial Intent 7: Affordability / Purchase query
-    elif any(k in p_lower for k in ['can i afford', 'buy', 'purchase', 'cost', 'should i spend']):
-        match = re.search(r'(?:₹|rs\.?|\$)?\s*(\d+(?:\.\d{1,2})?)', prompt, re.IGNORECASE)
-        item_cost = float(match.group(1)) if match else 100.0
-
-        if item_cost <= context['net_savings']:
-            remaining_after = context['net_savings'] - item_cost
-            reply = (
-                f"👍 **Purchase Analysis**: Yes, based on your current net savings of **₹{context['net_savings']:.2f}**, you can afford a **₹{item_cost:.2f}** expense.\n\n"
-                f"• Net Balance Before: **₹{context['net_savings']:.2f}**\n"
-                f"• Net Balance After: **₹{remaining_after:.2f}**"
-            )
-        else:
-            shortfall = item_cost - context['net_savings']
-            reply = (
-                f"⚠️ **Caution Recommended**: Buying a **₹{item_cost:.2f}** item right now would result in a shortfall of **₹{shortfall:.2f}** based on your current net balance of **₹{context['net_savings']:.2f}**."
-            )
+    # Intent 6: Direct Saved / Net Savings Question
+    elif any(k in p_clean for k in ['how much i saved', 'how much saved', 'amount i saved', 'amount saved', 'total saved', 'my savings', 'saved amount', 'net savings', 'how much did i save', 'saved this month', 'how much save']):
+        reply = f"💰 You have saved **₹{context['net_savings']:.2f}** this month (Savings Rate: **{context['savings_rate']}%**)."
+        if context['total_goals_saved'] > 0:
+            reply += f"\n🏦 Total saved across Savings Goals: **₹{context['total_goals_saved']:.2f}**."
         return {'reply': reply, 'source': 'BudgetBuddy Financial Intelligence Engine', 'context_summary': {'net_savings': context['net_savings']}}
 
-    # Financial Intent 8: Full Financial Summary Explicit Request
-    elif any(k in p_lower for k in ['summary', 'overview', 'details', 'full report', 'all details', 'financial status', 'snapshot']):
-        reply = (
-            f"📊 **AI Financial Snapshot for {context['user_name']}**:\n\n"
-            f"💰 **Monthly Income**: ₹{context['total_income']:.2f}\n"
-            f"💸 **Monthly Expenses**: ₹{context['total_expense']:.2f}\n"
-            f"📈 **Net Balance**: ₹{context['net_savings']:.2f} (Savings Rate: {context['savings_rate']}%)\n\n"
-            f"Feel free to ask me questions like:\n"
-            f"• *\"How much amount i saved?\"*\n"
-            f"• *\"Where am I spending the most?\"*\n"
-            f"• *\"Am I over budget in any category?\"*\n"
-            f"• *\"Can I afford a ₹500 purchase?\"*"
-        )
-        return {'reply': reply, 'source': 'BudgetBuddy Financial Intelligence Engine', 'context_summary': {'income': context['total_income'], 'expense': context['total_expense']}}
+    # Intent 7: Direct Income Question
+    elif any(k in p_clean for k in ['income', 'salary', 'how much i earned', 'total earnings', 'earned this month', 'how much income']):
+        reply = f"💵 Your total income for this month is **₹{context['total_income']:.2f}**."
+        return {'reply': reply, 'source': 'BudgetBuddy Financial Intelligence Engine', 'context_summary': {'total_income': context['total_income']}}
+
+    # Intent 8: Direct Expense / Spending Question
+    elif any(k in p_clean for k in ['total expense', 'total spent', 'how much spent', 'how much i spent', 'total spending', 'total expenditure']):
+        reply = f"💸 Your total spending for this month is **₹{context['total_expense']:.2f}**."
+        if context['category_breakdown']:
+            top_cat = max(context['category_breakdown'], key=context['category_breakdown'].get)
+            reply += f"\n📊 Highest spending category: **{top_cat}** (₹{context['category_breakdown'][top_cat]:.2f})."
+        return {'reply': reply, 'source': 'BudgetBuddy Financial Intelligence Engine', 'context_summary': {'total_expense': context['total_expense']}}
+
+    # Intent 9: Conversational Greetings
+    elif any(k in p_clean for k in ['how are you', 'how are u', 'how do you do', 'how is it going', 'how are things', 'how r u']):
+        reply = f"I'm doing great, thank you for asking! 😊 I'm here and ready to help you analyze your spending, check budget limits, or track your savings goals. How can I assist you today, {context['user_name']}?"
+        return {'reply': reply, 'source': 'BudgetBuddy AI', 'context_summary': {}}
+
+    elif p_clean in ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 'greetings'] or any(p_clean.startswith(k) for k in ['hi ', 'hello ', 'hey ']):
+        reply = f"Hello {context['user_name']}! 👋 How can I assist you with your finances today?"
+        return {'reply': reply, 'source': 'BudgetBuddy AI', 'context_summary': {}}
+
+    elif any(k in p_clean for k in ['who are you', 'what are you', 'what can you do', 'your name', 'about you']):
+        reply = f"I am your BudgetBuddy AI Financial Companion! 🤖\n\nI can help you:\n• Track your income, expenses, and net savings\n• Audit category spending and budget limits\n• Answer affordability questions\n• Parse natural language expenses and simulate savings goals."
+        return {'reply': reply, 'source': 'BudgetBuddy AI', 'context_summary': {}}
+
+    elif any(k in p_clean for k in ['thank you', 'thanks', 'thx', 'awesome', 'great job', 'perfect', 'thank u']):
+        reply = f"You're very welcome, {context['user_name']}! 😊 Let me know if you need any more financial insights!"
+        return {'reply': reply, 'source': 'BudgetBuddy AI', 'context_summary': {}}
 
     # Default Intent: Helpful Assistant Fallback
     else:
         reply = (
             f"I'm here to help with your finances, {context['user_name']}! 😊\n\n"
             f"You can ask me questions like:\n"
-            f"• *\"How much amount i saved?\"*\n"
             f"• *\"Where am I spending the most?\"*\n"
-            f"• *\"Am I over budget in any category?\"*\n"
-            f"• *\"Can I afford a ₹500 purchase?\"*"
+            f"• *\"Check my budget limits status\"*\n"
+            f"• *\"How are my savings goals doing?\"*\n"
+            f"• *\"Give me 3 tips to cut monthly expenses\"*\n"
+            f"• *\"Can I afford a ₹1,000 purchase?\"*"
         )
         return {'reply': reply, 'source': 'BudgetBuddy AI', 'context_summary': {}}
 
@@ -537,10 +550,13 @@ def parse_natural_language_expense(user, text):
 
     # 3. Clean Title
     title = text_clean
-    # Remove common lead words
+    # Remove common lead verbs, amounts, and prepositions
+    title = re.sub(r'^(spent|paid|bought|cost)?\s*(?:₹|rs\.?|inr|\$)?\s*\d+(?:\.\d{1,2})?\s*(on|for|at)?\s*', '', title, flags=re.IGNORECASE).strip()
     title = re.sub(r'^(spent|paid|bought|cost)\s*', '', title, flags=re.IGNORECASE).strip()
     if title:
         title = title[0].upper() + title[1:]
+    else:
+        title = text_clean
 
     # 4. Date parsing (today or yesterday)
     today = datetime.date.today()

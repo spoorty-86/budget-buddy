@@ -29,6 +29,14 @@ export default function AIPortal() {
   const [nlpResult, setNlpResult] = useState(null)
   const [isNlpLoading, setIsNlpLoading] = useState(false)
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('')
+  const [nlpError, setNlpError] = useState('')
+
+  const nlpSamplePrompts = [
+    "🛒 Spent ₹450 on groceries at Supermarket yesterday",
+    "⛽ Paid ₹1,200 for petrol at Shell today",
+    "☕ Spent ₹250 on coffee with team",
+    "⚡ Paid ₹1,500 for electricity bill yesterday"
+  ]
 
   // --- 4. What-If Simulator State ---
   const [simIncomeChange, setSimIncomeChange] = useState(0)
@@ -122,19 +130,27 @@ export default function AIPortal() {
   ]
 
   // NLP Parse Handler
-  const handleNlpParse = async (autoSave = false) => {
-    if (!nlpText.trim()) return
+  const handleNlpParse = async (autoSave = false, customText = null) => {
+    let targetText = (customText !== null ? customText : nlpText).trim()
+    if (!targetText) {
+      targetText = "Spent ₹450 on groceries at Supermarket yesterday"
+      setNlpText(targetText)
+    }
     setIsNlpLoading(true)
     setSaveSuccessMsg('')
+    setNlpError('')
     try {
-      const res = await api.post('/api/ai/parse-expense/', { text: nlpText, auto_save: autoSave })
+      const res = await api.post('/api/ai/parse-expense/', { text: targetText, auto_save: autoSave })
       setNlpResult(res.data)
-      if (autoSave && res.data.created_expense) {
-        setSaveSuccessMsg(`Expense "${res.data.created_expense.title}" of ₹${res.data.created_expense.amount} successfully added!`)
+      if (autoSave && (res.data.created_expense || res.data.title)) {
+        const savedTitle = res.data.created_expense?.title || res.data.title
+        const savedAmt = res.data.created_expense?.amount || res.data.amount
+        setSaveSuccessMsg(`Expense "${savedTitle}" of ₹${savedAmt} successfully added!`)
         fetchInsights() // refresh insights after saving
       }
     } catch (err) {
       console.error("NLP Parse Error:", err)
+      setNlpError("Failed to parse expense with AI. Please check your text input or network connection.")
     } finally {
       setIsNlpLoading(false)
     }
@@ -397,7 +413,24 @@ export default function AIPortal() {
         <div className="ai-tab-content nlp-tab">
           <div className="nlp-container-card">
             <h2>⚡ Smart Natural Language Expense Logger</h2>
-            <p>Type or paste any description of your expense, and BudgetBuddy AI will automatically extract the amount, category, date, and title!</p>
+            <p>Type or paste any description of your expense, or click a sample below to automatically extract the amount, category, date, and title!</p>
+
+            {/* Quick NLP Sample Chips */}
+            <div className="quick-prompts-bar" style={{ marginBottom: 16 }}>
+              {nlpSamplePrompts.map((sample, idx) => (
+                <button
+                  key={idx}
+                  className="prompt-chip"
+                  onClick={() => {
+                    setNlpText(sample)
+                    handleNlpParse(false, sample)
+                  }}
+                  disabled={isNlpLoading}
+                >
+                  {sample}
+                </button>
+              ))}
+            </div>
 
             <div className="nlp-input-wrapper">
               <textarea
@@ -410,29 +443,47 @@ export default function AIPortal() {
                 <button
                   className="nlp-parse-btn secondary"
                   onClick={() => handleNlpParse(false)}
-                  disabled={isNlpLoading || !nlpText.trim()}
+                  disabled={isNlpLoading}
                 >
-                  🔍 AI Preview Parse
+                  {isNlpLoading ? '⏳ Analyzing with AI...' : '🔍 AI Preview Parse'}
                 </button>
                 <button
                   className="nlp-parse-btn primary"
                   onClick={() => handleNlpParse(true)}
-                  disabled={isNlpLoading || !nlpText.trim()}
+                  disabled={isNlpLoading}
                 >
-                  ⚡ Auto-Add to Expenses
+                  {isNlpLoading ? '⏳ Saving...' : '⚡ Auto-Add to Expenses'}
                 </button>
               </div>
             </div>
 
+            {nlpError && (
+              <div className="error-banner" style={{ marginTop: 12 }}>
+                ⚠️ {nlpError}
+              </div>
+            )}
+
             {saveSuccessMsg && (
-              <div className="toast-success-banner">
+              <div className="toast-success-banner" style={{ marginTop: 12 }}>
                 ✅ {saveSuccessMsg}
               </div>
             )}
 
             {nlpResult && (
-              <div className="nlp-parsed-result-card">
-                <h3>Extracted Structured Details:</h3>
+              <div className="nlp-parsed-result-card" style={{ marginTop: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                  <h3 style={{ margin: 0 }}>Extracted Structured Details</h3>
+                  {!saveSuccessMsg && (
+                    <button
+                      className="btn primary"
+                      style={{ padding: '6px 16px', fontSize: 13, cursor: 'pointer' }}
+                      onClick={() => handleNlpParse(true)}
+                      disabled={isNlpLoading}
+                    >
+                      ✅ Confirm & Save Expense
+                    </button>
+                  )}
+                </div>
                 <div className="parsed-grid">
                   <div className="parsed-field">
                     <span className="lbl">Title</span>
@@ -440,7 +491,7 @@ export default function AIPortal() {
                   </div>
                   <div className="parsed-field">
                     <span className="lbl">Amount</span>
-                    <span className="val highlight">₹{nlpResult.amount.toFixed(2)}</span>
+                    <span className="val highlight">₹{Number(nlpResult.amount).toFixed(2)}</span>
                   </div>
                   <div className="parsed-field">
                     <span className="lbl">Category</span>

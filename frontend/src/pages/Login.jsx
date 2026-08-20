@@ -58,7 +58,7 @@ export default function Login() {
 
         <form onSubmit={handleSubmit}>
           <div className="field">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="username">Username or Email</label>
             <div style={{ position: 'relative' }}>
               <span
                 style={{
@@ -82,7 +82,7 @@ export default function Login() {
                 type="text"
                 value={form.username}
                 onChange={(e) => setForm({ ...form, username: e.target.value })}
-                placeholder="Enter your username"
+                placeholder="Enter your username or email"
                 style={{ paddingLeft: 40 }}
                 required
                 autoFocus
