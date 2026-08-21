@@ -606,17 +606,24 @@ def parse_natural_language_expense(user, text):
 
     if not matched_category:
         mapping = {
-            'food': ['groceries', 'supermarket', 'walmart', 'lunch', 'dinner', 'food', 'restaurant', 'starbucks', 'coffee', 'burger', 'pizza', 'swiggy', 'zomato', 'snack', 'cafe', 'tea'],
-            'transport': ['gas', 'fuel', 'uber', 'lyft', 'ola', 'taxi', 'bus', 'train', 'flight', 'parking', 'petrol', 'shell', 'cab', 'auto'],
-            'bills': ['electricity', 'water', 'internet', 'wifi', 'rent', 'bill', 'utility', 'subscription', 'netflix', 'recharge', 'mobile'],
-            'shopping': ['clothes', 'amazon', 'target', 'flipkart', 'shoes', 'electronics', 'shopping', 'store', 'mall'],
-            'entertainment': ['movie', 'tickets', 'game', 'concert', 'party', 'cinema']
+            'FOOD': ['groceries', 'supermarket', 'walmart', 'lunch', 'dinner', 'food', 'restaurant', 'starbucks', 'coffee', 'burger', 'pizza', 'swiggy', 'zomato', 'snack', 'cafe', 'tea'],
+            'TRAVEL': ['gas', 'fuel', 'uber', 'lyft', 'ola', 'taxi', 'bus', 'train', 'flight', 'parking', 'petrol', 'shell', 'cab', 'auto', 'transport', 'travel'],
+            'BILLS': ['electricity', 'water', 'internet', 'wifi', 'rent', 'bill', 'utility', 'subscription', 'netflix', 'recharge', 'mobile'],
+            'SHOPPING': ['clothes', 'amazon', 'target', 'flipkart', 'shoes', 'electronics', 'shopping', 'store', 'mall'],
+            'ENTERTAINMENT': ['movie', 'tickets', 'game', 'concert', 'party', 'cinema'],
+            'HEALTHCARE': ['doctor', 'hospital', 'medicine', 'pharmacy', 'clinic', 'health', 'medical'],
+            'EDUCATION': ['books', 'tuition', 'course', 'school', 'college', 'exam']
         }
-        for cat_key, keywords in mapping.items():
+        for cat_target, keywords in mapping.items():
             if any(kw in text_lower for kw in keywords):
-                matched_category = Category.objects.filter(name__icontains=cat_key).first()
+                matched_category = Category.objects.filter(name__iexact=cat_target).first()
+                if not matched_category:
+                    matched_category = Category.objects.filter(name__icontains=cat_target).first()
                 if matched_category:
                     break
+
+    if not matched_category:
+        matched_category = Category.objects.filter(name__iexact='MISCELLANEOUS').first() or Category.objects.first()
 
     # Clean Title
     title = clean_str

@@ -41,7 +41,7 @@ def insights_api(request):
 
 
 @api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.AllowAny])
 def parse_expense_api(request):
     """
     POST /api/ai/parse-expense/
@@ -54,37 +54,42 @@ def parse_expense_api(request):
         return Response({'error': 'Expense text is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
     auto_save = request.data.get('auto_save', False)
-    parsed = parse_natural_language_expense(request.user, text)
+    user = request.user if (request.user and request.user.is_authenticated) else None
+    parsed = parse_natural_language_expense(user, text)
 
-    if auto_save and parsed['amount'] > 0:
-        cat = None
-        if parsed['category_id']:
-            cat = Category.objects.filter(id=parsed['category_id']).first()
-        if not cat:
-            cat = Category.objects.first()
+    if auto_save:
+        if not user:
+            return Response({'error': 'You must be logged in to save expenses.'}, status=status.HTTP_401_UNAUTHORIZED)
+        if parsed['amount'] > 0:
+            cat = None
+            if parsed['category_id']:
+                cat = Category.objects.filter(id=parsed['category_id']).first()
+            if not cat:
+                cat = Category.objects.first()
 
-        expense = Expense.objects.create(
-            user=request.user,
-            title=parsed['title'],
-            amount=parsed['amount'],
-            category=cat,
-            date_spent=parsed['date_spent'],
-            notes=f"Auto-parsed by BudgetBuddy AI from: \"{text}\""
-        )
-        parsed['created_expense'] = ExpenseSerializer(expense).data
+            expense = Expense.objects.create(
+                user=user,
+                title=parsed['title'],
+                amount=parsed['amount'],
+                category=cat,
+                date_spent=parsed['date_spent'],
+                notes=f"Auto-parsed by BudgetBuddy AI from: \"{text}\""
+            )
+            parsed['created_expense'] = ExpenseSerializer(expense).data
 
     return Response(parsed)
 
 
 @api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.AllowAny])
 def simulate_api(request):
     """
     POST /api/ai/simulate/
     Runs what-if scenario simulations for budget and goal planning.
     Payload: { "income_change": 200, "expense_cut_pct": 10, "custom_monthly_savings": 50 }
     """
-    simulation_results = run_what_if_simulation(request.user, request.data)
+    user = request.user if (request.user and request.user.is_authenticated) else None
+    simulation_results = run_what_if_simulation(user, request.data)
     return Response(simulation_results)
 
 
