@@ -22,6 +22,7 @@ export default function Layout() {
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [showNotifDropdown, setShowNotifDropdown] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const notifRef = useRef(null)
   const navigate = useNavigate()
 
@@ -116,7 +117,29 @@ export default function Layout() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+      {/* Mobile Header Bar */}
+      <header className="mobile-top-bar">
+        <button
+          className="mobile-hamburger-btn"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label="Toggle Menu"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
+        <div className="brand" style={{ padding: 0, border: 'none', margin: 0, fontSize: 20 }}>
+          Budget<span>Buddy</span>
+        </div>
+      </header>
+
+      {mobileMenuOpen && (
+        <div className="sidebar-backdrop" onClick={() => setMobileMenuOpen(false)} />
+      )}
+
+      <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="brand">Budget<span>Buddy</span></div>
         <nav>
           {LINKS.map((link) => (
@@ -124,6 +147,7 @@ export default function Layout() {
               key={link.to}
               to={link.to}
               end={link.end}
+              onClick={() => setMobileMenuOpen(false)}
               className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')}
             >
               <span style={{ fontSize: 16, width: 20, textAlign: 'center', display: 'inline-block' }}>{link.icon}</span>
