@@ -31,12 +31,22 @@ export default function AIPortal() {
   const [isNlpLoading, setIsNlpLoading] = useState(false)
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('')
   const [nlpError, setNlpError] = useState('')
+  const sampleScrollRef = useRef(null)
+
+  const scrollSamples = (direction) => {
+    if (sampleScrollRef.current) {
+      const scrollAmount = direction === 'left' ? -250 : 250
+      sampleScrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' })
+    }
+  }
 
   const nlpSamplePrompts = [
     "🛒 Spent ₹450 on groceries at Supermarket yesterday",
     "⛽ Paid ₹1,200 for petrol at Shell today",
     "☕ Spent ₹250 on coffee with team",
-    "⚡ Paid ₹1,500 for electricity bill yesterday"
+    "⚡ Paid ₹1,500 for electricity bill yesterday",
+    "🛍️ Spent ₹2,500 on clothes at Shopping Mall",
+    "🎬 Paid ₹600 for movie tickets today"
   ]
 
   // --- 4. What-If Simulator State ---
@@ -416,21 +426,40 @@ export default function AIPortal() {
             <h2>⚡ Smart Natural Language Expense Logger</h2>
             <p>Type or paste any description of your expense, or click a sample below to automatically extract the amount, category, date, and title!</p>
 
-            {/* Quick NLP Sample Chips */}
-            <div className="quick-prompts-bar" style={{ marginBottom: 16 }}>
-              {nlpSamplePrompts.map((sample, idx) => (
-                <button
-                  key={idx}
-                  className="prompt-chip"
-                  onClick={() => {
-                    setNlpText(sample)
-                    handleNlpParse(false, sample)
-                  }}
-                  disabled={isNlpLoading}
-                >
-                  {sample}
-                </button>
-              ))}
+            {/* Quick NLP Sample Chips Carousel */}
+            <div className="nlp-samples-carousel-wrapper" style={{ marginBottom: 16 }}>
+              <button
+                type="button"
+                className="carousel-arrow-btn left"
+                onClick={() => scrollSamples('left')}
+                title="Scroll Left"
+              >
+                ◀
+              </button>
+              <div className="nlp-samples-scroll-track" ref={sampleScrollRef}>
+                {nlpSamplePrompts.map((sample, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    className="prompt-chip nlp-chip"
+                    onClick={() => {
+                      setNlpText(sample)
+                      handleNlpParse(false, sample)
+                    }}
+                    disabled={isNlpLoading}
+                  >
+                    {sample}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="carousel-arrow-btn right"
+                onClick={() => scrollSamples('right')}
+                title="Scroll Right"
+              >
+                ▶
+              </button>
             </div>
 
             <div className="nlp-input-wrapper">

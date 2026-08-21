@@ -1523,6 +1523,85 @@ input:checked + .slider:before {
   grid-column: span 2;
 }
 
+/* ---------- NLP Quick AI Logger Samples Carousel ---------- */
+.nlp-samples-carousel-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 12px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.nlp-samples-scroll-track {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  flex: 1;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+  padding: 2px 0;
+}
+
+.nlp-samples-scroll-track::-webkit-scrollbar {
+  height: 4px;
+}
+
+.nlp-samples-scroll-track::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.carousel-arrow-btn {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  color: #64748b;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
+}
+
+.carousel-arrow-btn:hover {
+  background: #6366f1;
+  color: #ffffff;
+  border-color: #6366f1;
+  transform: scale(1.05);
+}
+
+.prompt-chip.nlp-chip {
+  white-space: nowrap;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  color: #334155;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.prompt-chip.nlp-chip:hover {
+  background: #e0e7ff;
+  border-color: #818cf8;
+  color: #3730a3;
+  transform: translateY(-1px);
+}
+
 
 
 
