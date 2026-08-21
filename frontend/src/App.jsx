@@ -5,6 +5,7 @@ import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
+import OAuthCallback from './pages/OAuthCallback'
 import Dashboard from './pages/Dashboard'
 import Expenses from './pages/Expenses'
 import Incomes from './pages/Incomes'
@@ -39,6 +40,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/oauth/callback" element={<OAuthCallback />} />
       <Route path="/" element={<HomeRoute />}>
         <Route index element={<Dashboard />} />
         <Route path="expenses" element={<Expenses />} />

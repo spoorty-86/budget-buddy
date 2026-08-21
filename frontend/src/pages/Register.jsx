@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, Navigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { formatApiError } from '../utils/errors'
+import SocialLoginButtons from '../components/SocialLoginButtons'
 
 export default function Register() {
   const navigate = useNavigate()
@@ -342,6 +343,8 @@ export default function Register() {
             {loading ? 'Creating account…' : 'Register'}
           </button>
         </form>
+
+        <SocialLoginButtons error={error} setError={setError} />
 
         <div className="auth-switch">
           Already have an account? <Link to="/login" style={{ color: 'var(--green)', fontWeight: 600 }}>Log in</Link>

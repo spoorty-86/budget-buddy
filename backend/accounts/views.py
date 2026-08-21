@@ -108,3 +108,75 @@ class PasswordResetView(APIView):
         )
 
         return Response({'detail': 'Password reset successfully. You can now log in with your new password.'})
+
+
+import os
+from dotenv import load_dotenv
+from rest_framework_simplejwt.tokens import RefreshToken
+from .oauth import get_google_user_info, get_github_user_info, get_or_create_oauth_user
+
+
+class OAuthUrlsView(APIView):
+    """GET /api/auth/oauth/urls/  -- Returns OAuth configuration and app IDs."""
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        from pathlib import Path
+        env_path = Path(__file__).resolve().parent.parent / '.env'
+        load_dotenv(env_path, override=True)
+        google_client_id = os.environ.get('GOOGLE_CLIENT_ID', '').strip()
+        github_client_id = os.environ.get('GITHUB_CLIENT_ID', '').strip()
+        return Response({
+            'google_client_id': google_client_id,
+            'github_client_id': github_client_id,
+            'google_enabled': bool(google_client_id),
+            'github_enabled': bool(github_client_id),
+        })
+
+
+class OAuthLoginView(APIView):
+    """POST /api/auth/oauth/  -- Exchange OAuth code for SimpleJWT tokens."""
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        provider = request.data.get('provider')
+        code = request.data.get('code')
+        redirect_uri = request.data.get('redirect_uri')
+
+        if not provider or not code:
+            return Response({'detail': 'Both "provider" and "code" parameters are required.'}, status=400)
+
+        if not redirect_uri:
+            redirect_uri = request.build_absolute_uri('/')
+
+        try:
+            if provider == 'google':
+                user_data = get_google_user_info(code, redirect_uri)
+            elif provider == 'github':
+                user_data = get_github_user_info(code, redirect_uri)
+            else:
+                return Response({'detail': f'Unsupported OAuth provider: "{provider}".'}, status=400)
+
+            user = get_or_create_oauth_user(
+                provider=provider,
+                email=user_data['email'],
+                first_name=user_data.get('first_name', ''),
+                last_name=user_data.get('last_name', ''),
+                avatar=user_data.get('avatar', ''),
+                username_hint=user_data.get('username_hint', '')
+            )
+
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
+            })
+        except ValueError as ve:
+            logger.warning(f"OAuth validation error ({provider}): {ve}")
+            return Response({'detail': str(ve)}, status=400)
+        except Exception as exc:
+            tb = traceback.format_exc()
+            logger.error(f"OAuth server error ({provider}): {exc}\n{tb}")
+            return Response({'detail': f"OAuth Authentication Failed: {str(exc)}"}, status=500)

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, Navigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { formatApiError } from '../utils/errors'
+import SocialLoginButtons from '../components/SocialLoginButtons'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -162,6 +163,8 @@ export default function Login() {
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
+
+        <SocialLoginButtons error={error} setError={setError} />
 
         <div className="auth-switch">
           Don't have an account? <Link to="/register" style={{ color: 'var(--green)', fontWeight: 600 }}>Sign up</Link>

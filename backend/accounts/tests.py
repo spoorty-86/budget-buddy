@@ -93,3 +93,51 @@ class PasswordResetTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('confirm_password', response.data)
+
+
+from unittest.mock import patch
+from accounts.oauth import get_or_create_oauth_user
+
+class OAuthTests(APITestCase):
+    def test_oauth_urls_endpoint(self):
+        url = reverse('oauth_urls')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('google_client_id', response.data)
+        self.assertIn('github_client_id', response.data)
+
+    def test_get_or_create_oauth_user_creates_new_user(self):
+        user = get_or_create_oauth_user(
+            provider='google',
+            email='oauthuser@example.com',
+            first_name='OAuth',
+            last_name='User',
+            avatar='https://example.com/avatar.jpg'
+        )
+        self.assertIsNotNone(user)
+        self.assertEqual(user.email, 'oauthuser@example.com')
+        self.assertEqual(user.first_name, 'OAuth')
+        self.assertEqual(user.last_name, 'User')
+        self.assertEqual(user.profile.full_name, 'OAuth User')
+        self.assertEqual(user.profile.avatar, 'https://example.com/avatar.jpg')
+
+    def test_get_or_create_oauth_user_links_existing_user(self):
+        existing = User.objects.create_user(
+            username='existingoauth',
+            email='sameemail@example.com',
+            password='secretpassword'
+        )
+        user = get_or_create_oauth_user(
+            provider='github',
+            email='sameemail@example.com',
+            first_name='Updated',
+            last_name='Name'
+        )
+        self.assertEqual(user.id, existing.id)
+        self.assertEqual(user.first_name, 'Updated')
+
+    def test_oauth_login_missing_params(self):
+        url = reverse('oauth_login')
+        response = self.client.post(url, {}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('detail', response.data)

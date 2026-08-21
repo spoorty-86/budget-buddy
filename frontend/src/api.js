@@ -10,6 +10,8 @@ const PUBLIC_ENDPOINTS = [
   '/api/auth/register/',
   '/api/auth/refresh/',
   '/api/auth/password-reset/',
+  '/api/auth/oauth/',
+  '/api/auth/oauth/urls/',
 ]
 
 api.interceptors.request.use((config) => {
@@ -47,7 +49,7 @@ api.interceptors.response.use(
           refreshing = null
           localStorage.removeItem('access')
           localStorage.removeItem('refresh')
-          const isPublicPage = ['/login', '/register', '/forgot-password', '/landing'].includes(window.location.pathname)
+          const isPublicPage = ['/login', '/register', '/forgot-password', '/landing', '/oauth/callback'].includes(window.location.pathname)
           if (!isPublicPage) {
             window.location.href = '/login'
           }
