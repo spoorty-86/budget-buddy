@@ -42,4 +42,4 @@ Each `run.sh` sets itself up on first run (virtual env / `npm install`) and just
 - **Frontend loads but nothing works / network errors in the browser console** → the backend isn't running yet, or it's on a different port than `frontend/.env` expects (`VITE_API_URL`).
 - **`./run.sh: Permission denied`** → run `chmod +x run.sh` once in that folder.
 - **Port already in use** → something else is already running on 8000 or 5173; stop it, or edit the port in `backend/run.sh` / `frontend/vite.config.js`.
-# infosys-springboard-internship
+# budget-buddy
