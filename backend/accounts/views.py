@@ -177,6 +177,25 @@ class OAuthLoginView(APIView):
             logger.warning(f"OAuth validation error ({provider}): {ve}")
             return Response({'detail': str(ve)}, status=400)
         except Exception as exc:
+            if 'no such table' in str(exc).lower():
+                try:
+                    from django.core.management import call_command
+                    call_command('migrate', interactive=False)
+                    user = get_or_create_oauth_user(
+                        provider=provider,
+                        email=user_data['email'],
+                        first_name=user_data.get('first_name', ''),
+                        last_name=user_data.get('last_name', ''),
+                        avatar=user_data.get('avatar', ''),
+                        username_hint=user_data.get('username_hint', '')
+                    )
+                    refresh = RefreshToken.for_user(user)
+                    return Response({
+                        'access': str(refresh.access_token),
+                        'refresh': str(refresh),
+                    })
+                except Exception as m_exc:
+                    exc = m_exc
             tb = traceback.format_exc()
             logger.error(f"OAuth server error ({provider}): {exc}\n{tb}")
             return Response({'detail': f"OAuth Authentication Failed: {str(exc)}"}, status=500)
