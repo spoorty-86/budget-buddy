@@ -153,13 +153,14 @@ def get_or_create_oauth_user(provider, email, first_name='', last_name='', avata
         if updated:
             user.save()
 
-        # Update profile avatar / full name if empty
+        # Update profile avatar / full name with latest OAuth provider data
         profile, _ = Profile.objects.get_or_create(user=user)
         profile_updated = False
-        if not profile.full_name and (first_name or last_name):
-            profile.full_name = f"{first_name} {last_name}".strip()
+        full_name = f"{first_name} {last_name}".strip()
+        if full_name and (not profile.full_name or profile.full_name == user.username):
+            profile.full_name = full_name
             profile_updated = True
-        if avatar and not profile.avatar:
+        if avatar:
             profile.avatar = avatar
             profile_updated = True
         if profile_updated:
