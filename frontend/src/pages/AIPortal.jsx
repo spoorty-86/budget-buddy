@@ -437,7 +437,12 @@ export default function AIPortal() {
                 rows={3}
                 placeholder="Example: Spent ₹450 on groceries at Supermarket yesterday..."
                 value={nlpText}
-                onChange={(e) => setNlpText(e.target.value)}
+                onChange={(e) => {
+                  setNlpText(e.target.value)
+                  if (nlpResult) setNlpResult(null)
+                  if (saveSuccessMsg) setSaveSuccessMsg('')
+                  if (nlpError) setNlpError('')
+                }}
               />
               <div className="nlp-btn-row">
                 <button

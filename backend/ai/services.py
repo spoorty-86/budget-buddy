@@ -514,33 +514,103 @@ def generate_ai_insights(user):
 
 def parse_natural_language_expense(user, text):
     """
-    Parses natural language input like "Spent ₹450 on groceries at Target"
+    Parses natural language input like "🛒 Spent ₹450 on groceries at Supermarket yesterday"
     into structured expense fields: title, amount, category, date.
     """
     text_clean = text.strip()
     
-    # 1. Regex parse amount (supports ₹, rs., rs, inr, $)
-    amount_match = re.search(r'(?:spent|₹|rs\.?|inr|\$|paid|for|cost)?\s*(?:₹|rs\.?|inr|\$)?\s*(\d+(?:\.\d{1,2})?)', text_clean, re.IGNORECASE)
-    amount = float(amount_match.group(1)) if amount_match else 0.0
+    # 1. Try Gemini LLM parse if key available
+    api_key = os.environ.get('GEMINI_API_KEY')
+    if api_key:
+        categories_list = list(Category.objects.values_list('name', flat=True))
+        gemini_prompt = (
+            f"Extract structured expense information from this user text: \"{text_clean}\".\n"
+            f"Available categories in user database: {categories_list}\n"
+            f"Current Date: {datetime.date.today().isoformat()}\n\n"
+            "Return ONLY a valid JSON object without markdown formatting, with these keys:\n"
+            "{\"title\": \"Short clean title without amount, dates or leading verbs\", \"amount\": 450.0, \"category_name\": \"CategoryName\", \"date_spent\": \"YYYY-MM-DD\"}"
+        )
+        llm_raw = call_gemini_api(gemini_prompt)
+        if llm_raw:
+            try:
+                json_match = re.search(r'\{.*\}', llm_raw, re.DOTALL)
+                if json_match:
+                    parsed_json = json.loads(json_match.group(0))
+                    cat_name_extracted = parsed_json.get('category_name', '')
+                    cat_obj = Category.objects.filter(name__iexact=cat_name_extracted).first()
+                    if not cat_obj and cat_name_extracted:
+                        cat_obj = Category.objects.filter(name__icontains=cat_name_extracted).first()
 
-    # 2. Extract Category matching user's DB categories
+                    amt = float(parsed_json.get('amount', 0))
+                    t_title = parsed_json.get('title', text_clean).strip()
+                    if t_title:
+                        t_title = t_title[0].upper() + t_title[1:]
+
+                    return {
+                        'title': t_title or 'Parsed Expense',
+                        'amount': amt,
+                        'category_id': cat_obj.id if cat_obj else None,
+                        'category_name': cat_obj.name if cat_obj else 'General',
+                        'date_spent': parsed_json.get('date_spent', datetime.date.today().isoformat()),
+                        'original_text': text_clean
+                    }
+            except Exception as e:
+                print(f"[AI Service] Gemini parse error: {e}")
+
+    # 2. Rule-based & Regex fallback parser
+    # Remove leading emojis and non-alphanumeric chars
+    clean_str = re.sub(r'^[^\w\s₹\$]+', '', text_clean).strip()
+    text_lower = clean_str.lower()
+
+    # Extract Date
+    today = datetime.date.today()
+    date_spent = today
+    if 'yesterday' in text_lower:
+        date_spent = today - datetime.timedelta(days=1)
+    elif 'day before yesterday' in text_lower:
+        date_spent = today - datetime.timedelta(days=2)
+
+    # Extract Amount (smart multi-priority detection)
+    # Priority A: Number with currency symbol attached (e.g. ₹450, Rs. 1200, $50, INR 500)
+    curr_match = re.search(r'(?:₹|rs\.?|inr|\$)\s*(\d+(?:[,\.]\d+)*)', clean_str, re.IGNORECASE)
+    amount = 0.0
+    if curr_match:
+        try:
+            amount = float(curr_match.group(1).replace(',', ''))
+        except ValueError:
+            amount = 0.0
+
+    if amount <= 0:
+        # Priority B: Number after paid/spent/for/cost/amount
+        verb_match = re.search(r'(?:spent|paid|bought|cost|recharged|for|amount of)\s*(?:₹|rs\.?|inr|\$)?\s*(\d+(?:[,\.]\d+)*)', clean_str, re.IGNORECASE)
+        if verb_match:
+            try:
+                amount = float(verb_match.group(1).replace(',', ''))
+            except ValueError:
+                amount = 0.0
+
+    if amount <= 0:
+        # Priority C: Any standalone number (pick largest non-year number)
+        nums = re.findall(r'\b\d+(?:\.\d{1,2})?\b', clean_str)
+        valid_nums = [float(n) for n in nums if not (1990 <= float(n) <= 2099)]
+        if valid_nums:
+            amount = max(valid_nums)
+
+    # Extract Category
     categories = Category.objects.all()
     matched_category = None
-    text_lower = text_clean.lower()
-    
     for cat in categories:
         if cat.name.lower() in text_lower:
             matched_category = cat
             break
-            
+
     if not matched_category:
-        # Fallback heuristic mapping
         mapping = {
-            'food': ['groceries', 'supermarket', 'walmart', 'lunch', 'dinner', 'food', 'restaurant', 'starbucks', 'coffee', 'burger', 'pizza', 'swiggy', 'zomato'],
-            'transport': ['gas', 'fuel', 'uber', 'lyft', 'ola', 'taxi', 'bus', 'train', 'flight', 'parking', 'petrol'],
-            'bills': ['electricity', 'water', 'internet', 'wifi', 'rent', 'bill', 'utility', 'subscription', 'netflix'],
-            'shopping': ['clothes', 'amazon', 'target', 'flipkart', 'shoes', 'electronics', 'shopping'],
-            'entertainment': ['movie', 'tickets', 'game', 'concert', 'party']
+            'food': ['groceries', 'supermarket', 'walmart', 'lunch', 'dinner', 'food', 'restaurant', 'starbucks', 'coffee', 'burger', 'pizza', 'swiggy', 'zomato', 'snack', 'cafe', 'tea'],
+            'transport': ['gas', 'fuel', 'uber', 'lyft', 'ola', 'taxi', 'bus', 'train', 'flight', 'parking', 'petrol', 'shell', 'cab', 'auto'],
+            'bills': ['electricity', 'water', 'internet', 'wifi', 'rent', 'bill', 'utility', 'subscription', 'netflix', 'recharge', 'mobile'],
+            'shopping': ['clothes', 'amazon', 'target', 'flipkart', 'shoes', 'electronics', 'shopping', 'store', 'mall'],
+            'entertainment': ['movie', 'tickets', 'game', 'concert', 'party', 'cinema']
         }
         for cat_key, keywords in mapping.items():
             if any(kw in text_lower for kw in keywords):
@@ -548,21 +618,26 @@ def parse_natural_language_expense(user, text):
                 if matched_category:
                     break
 
-    # 3. Clean Title
-    title = text_clean
-    # Remove common lead verbs, amounts, and prepositions
-    title = re.sub(r'^(spent|paid|bought|cost)?\s*(?:₹|rs\.?|inr|\$)?\s*\d+(?:\.\d{1,2})?\s*(on|for|at)?\s*', '', title, flags=re.IGNORECASE).strip()
-    title = re.sub(r'^(spent|paid|bought|cost)\s*', '', title, flags=re.IGNORECASE).strip()
+    # Clean Title
+    title = clean_str
+    # Remove leading verbs
+    title = re.sub(r'^(spent|paid|bought|cost|recharged)\s*', '', title, flags=re.IGNORECASE).strip()
+    # Remove currency & amount
+    title = re.sub(r'(?:₹|rs\.?|inr|\$)\s*\d+(?:[,\.]\d+)*', '', title, flags=re.IGNORECASE).strip()
+    if amount > 0:
+        title = re.sub(rf'\b{int(amount)}\b', '', title).strip()
+    # Remove leading prepositions (on, for, at)
+    title = re.sub(r'^(on|for|at)\s+', '', title, flags=re.IGNORECASE).strip()
+    # Remove date words
+    title = re.sub(r'\b(yesterday|today|tomorrow|day before yesterday)\b', '', title, flags=re.IGNORECASE).strip()
+    # Remove leftover punctuation or multi-spaces
+    title = re.sub(r'\s+', ' ', title).strip()
+    title = re.sub(r'^[^\w\s]+|[^\w\s]+$', '', title).strip()
+
     if title:
         title = title[0].upper() + title[1:]
     else:
-        title = text_clean
-
-    # 4. Date parsing (today or yesterday)
-    today = datetime.date.today()
-    date_spent = today
-    if 'yesterday' in text_lower:
-        date_spent = today - datetime.timedelta(days=1)
+        title = clean_str
 
     return {
         'title': title or 'Parsed Expense',
