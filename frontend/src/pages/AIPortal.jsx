@@ -1,3 +1,4 @@
+// Quick AI Logger v2.0 - Forced Cache Invalidation
 import { useEffect, useState, useRef } from 'react'
 import api from '../api'
 
