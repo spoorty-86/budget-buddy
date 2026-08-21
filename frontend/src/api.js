@@ -47,14 +47,16 @@ api.interceptors.response.use(
           refreshing = null
           localStorage.removeItem('access')
           localStorage.removeItem('refresh')
-          if (window.location.pathname !== '/login') {
+          const isPublicPage = ['/login', '/register', '/forgot-password', '/landing'].includes(window.location.pathname)
+          if (!isPublicPage) {
             window.location.href = '/login'
           }
         }
       } else {
         localStorage.removeItem('access')
         localStorage.removeItem('refresh')
-        if (window.location.pathname !== '/login') {
+        const isPublicPage = ['/login', '/register', '/forgot-password', '/landing'].includes(window.location.pathname)
+        if (!isPublicPage) {
           window.location.href = '/login'
         }
       }

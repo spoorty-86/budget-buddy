@@ -13,18 +13,24 @@ export function AuthProvider({ children }) {
       setProfile(data)
       return data
     } catch (err) {
-      setProfile(null)
-      localStorage.removeItem('access')
-      localStorage.removeItem('refresh')
+      if (err.response?.status === 401) {
+        setProfile(null)
+        localStorage.removeItem('access')
+        localStorage.removeItem('refresh')
+      }
       throw err
     }
   }, [])
 
   useEffect(() => {
-    const token = localStorage.getItem('access')
-    if (token) {
+    const access = localStorage.getItem('access')
+    const refresh = localStorage.getItem('refresh')
+
+    if (access || refresh) {
       loadProfile()
-        .catch(() => {})
+        .catch((err) => {
+          console.warn('Session restoration failed:', err)
+        })
         .finally(() => setReady(true))
     } else {
       setReady(true)
