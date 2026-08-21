@@ -1,6 +1,6 @@
 # BudgetBuddy Production Deployment Guide
 
-This guide provides end-to-end instructions for deploying the **BudgetBuddy React (Vite) Frontend** to **Vercel** (yielding a URL like `https://budget-buddy-nine-teal.vercel.app` or your custom project domain) and the **Django REST API Backend** to **Render** or **AWS**.
+This guide provides end-to-end instructions for deploying the **BudgetBuddy React (Vite) Frontend** to **Vercel** (URL: `https://budget-buddy-app.vercel.app`) and the **Django REST API Backend** to **Render** or **AWS**.
 
 ---
 
