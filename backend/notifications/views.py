@@ -68,26 +68,32 @@ class NotificationViewSet(viewsets.ModelViewSet):
         Sends an instant test notification to the user's logged-in Google Account email.
         """
         user = request.user
-        recipient_email = user.email.strip() if user.email else ''
+        recipient_email = (user.email or getattr(getattr(user, 'profile', None), 'email', '') or '').strip()
         
         if not recipient_email:
             return Response({
                 'detail': 'Your account does not have an email address associated with it. Please update your profile or sign in with your Google Account.'
             }, status=400)
 
-        # Creating notification automatically triggers the post_save email signal
-        notification = Notification.objects.create(
-            user=user,
-            title='Google Account Notification Test 🔔',
-            message=f'This is a test notification from BudgetBuddy sent to your Google Account email ({recipient_email}). Your real-time email & mobile notifications are working perfectly!',
-            notification_type='SUCCESS',
-            priority=1,
-        )
+        try:
+            notification = Notification.objects.create(
+                user=user,
+                title='Google Account Notification Test 🔔',
+                message=f'This is a test notification from BudgetBuddy sent to your Google Account email ({recipient_email}). Your real-time email & mobile notifications are working perfectly!',
+                notification_type='SUCCESS',
+                priority=1,
+            )
 
-        serializer = self.get_serializer(notification)
-        return Response({
-            'detail': f'Test notification created and email dispatched to {recipient_email}!',
-            'notification': serializer.data,
-            'email': recipient_email,
-        })
+            serializer = self.get_serializer(notification)
+            return Response({
+                'detail': f'Test notification created and email dispatched to {recipient_email}!',
+                'notification': serializer.data,
+                'email': recipient_email,
+            })
+        except Exception as exc:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.exception("Error in test_email: %s", exc)
+            return Response({'detail': f'Unable to send test notification email: {str(exc)}'}, status=500)
+
 
