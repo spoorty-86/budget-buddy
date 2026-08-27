@@ -16,8 +16,18 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.http import JsonResponse
+
+def api_root_view(request):
+    return JsonResponse({
+        'status': 'online',
+        'app': 'BudgetBuddy Django Backend API',
+        'message': 'BudgetBuddy API server is running successfully.',
+        'frontend_url': 'https://budget-buddy-apps.vercel.app/login'
+    })
 
 urlpatterns = [
+    path('', api_root_view, name='api-root'),
     path('admin/', admin.site.urls),
     path('api/auth/', include('accounts.urls')),
     path('api/finance/', include('finance.urls')),
@@ -26,3 +36,4 @@ urlpatterns = [
     path('api/reports/', include('reports.urls')),
     path('api/ai/', include('ai.urls')),
 ]
+

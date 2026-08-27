@@ -53,6 +53,24 @@ export default function Login() {
           </div>
           <h1>Welcome back</h1>
           <p className="page-sub">Sign in to your account to manage your finances.</p>
+          <div style={{
+            margin: '12px 0',
+            padding: '10px 14px',
+            background: 'rgba(16, 185, 129, 0.08)',
+            border: '1px solid rgba(16, 185, 129, 0.25)',
+            borderRadius: '8px',
+            fontSize: '12.5px',
+            color: 'var(--ink-primary, #0f172a)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            lineHeight: '1.4'
+          }}>
+            <span style={{ fontSize: '16px' }}>📱</span>
+            <div>
+              <strong>Google Account Notifications:</strong> All alerts & messages are synced to your Google email for mobile delivery.
+            </div>
+          </div>
         </div>
 
         {error && <div className="error-banner">{error}</div>}

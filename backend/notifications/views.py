@@ -61,3 +61,33 @@ class NotificationViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'Invalid ids payload'}, status=400)
         updated_count = self.get_queryset().filter(id__in=ids).update(is_pinned=bool(pin))
         return Response({'status': 'updated', 'count': updated_count})
+
+    @action(detail=False, methods=['post'], url_path='test-email')
+    def test_email(self, request):
+        """
+        Sends an instant test notification to the user's logged-in Google Account email.
+        """
+        user = request.user
+        recipient_email = user.email.strip() if user.email else ''
+        
+        if not recipient_email:
+            return Response({
+                'detail': 'Your account does not have an email address associated with it. Please update your profile or sign in with your Google Account.'
+            }, status=400)
+
+        # Creating notification automatically triggers the post_save email signal
+        notification = Notification.objects.create(
+            user=user,
+            title='Google Account Notification Test 🔔',
+            message=f'This is a test notification from BudgetBuddy sent to your Google Account email ({recipient_email}). Your real-time email & mobile notifications are working perfectly!',
+            notification_type='SUCCESS',
+            priority=1,
+        )
+
+        serializer = self.get_serializer(notification)
+        return Response({
+            'detail': f'Test notification created and email dispatched to {recipient_email}!',
+            'notification': serializer.data,
+            'email': recipient_email,
+        })
+

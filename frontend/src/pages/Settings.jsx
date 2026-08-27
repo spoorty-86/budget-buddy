@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react'
 import api from '../api'
+import { useAuth } from '../AuthContext'
 
 export default function Settings() {
+  const { profile } = useAuth()
   const [activeTab, setActiveTab] = useState('notifications')
+  const [testSending, setTestSending] = useState(false)
+  const [testMsg, setTestMsg] = useState('')
   
   // Settings State (loaded from localStorage or defaults)
   const [settings, setSettings] = useState(() => {
@@ -293,8 +297,10 @@ export default function Settings() {
 
               <div className="setting-toggle-row">
                 <div>
-                  <strong>📧 Email Digest Notifications</strong>
-                  <div style={{ fontSize: 12, color: '#64748b' }}>Send email notifications to your registered email account.</div>
+                  <strong>📧 Google Account Email Notifications</strong>
+                  <div style={{ fontSize: 12, color: '#64748b' }}>
+                    Real-time notifications sent to <strong>{profile?.email || 'your Google Account email'}</strong> for mobile alerts.
+                  </div>
                 </div>
                 <label className="switch">
                   <input
@@ -305,6 +311,60 @@ export default function Settings() {
                   <span className="slider round"></span>
                 </label>
               </div>
+
+              {/* Test Google Account Notification Section */}
+              <div style={{
+                marginTop: 16,
+                padding: 16,
+                background: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                borderRadius: 8,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 12
+              }}>
+                <div>
+                  <strong style={{ color: '#166534', fontSize: 14 }}>📱 Test Real-Time Mobile Email Delivery</strong>
+                  <div style={{ fontSize: 12.5, color: '#15803d', marginTop: 2 }}>
+                    Trigger a test alert to verify Brevo SMTP & Google Account inbox notification delivery.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setTestSending(true)
+                    setTestMsg('')
+                    try {
+                      const { data } = await api.post('/api/notifications/test-email/')
+                      setTestMsg(data?.detail || 'Test email dispatched!')
+                    } catch (e) {
+                      setTestMsg(e?.response?.data?.detail || 'Failed to send test email.')
+                    } finally {
+                      setTestSending(false)
+                    }
+                  }}
+                  disabled={testSending}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 6,
+                    border: 'none',
+                    background: '#16a34a',
+                    color: '#fff',
+                    fontWeight: 600,
+                    fontSize: 13,
+                    cursor: testSending ? 'wait' : 'pointer'
+                  }}
+                >
+                  {testSending ? 'Sending...' : '✉️ Send Test Notification'}
+                </button>
+              </div>
+              {testMsg && (
+                <div style={{ fontSize: 13, fontWeight: 500, color: testMsg.includes('Failed') ? '#dc2626' : '#15803d', marginTop: 8 }}>
+                  {testMsg}
+                </div>
+              )}
             </div>
           </div>
         </div>

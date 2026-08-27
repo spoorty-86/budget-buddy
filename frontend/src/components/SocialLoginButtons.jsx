@@ -91,6 +91,7 @@ export default function SocialLoginButtons({ error, setError }) {
           type="button"
           onClick={handleGoogleLogin}
           disabled={loading}
+          title="Sign in with Google Account to receive real-time mobile email notifications for all BudgetBuddy alerts"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -134,7 +135,7 @@ export default function SocialLoginButtons({ error, setError }) {
               d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.36 0 3.26 2.7 1.29 6.58l3.99 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
             />
           </svg>
-          <span>Google</span>
+          <span>Google Account</span>
         </button>
 
         <button

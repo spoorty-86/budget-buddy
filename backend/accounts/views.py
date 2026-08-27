@@ -27,6 +27,17 @@ class CustomTokenRefreshView(TokenRefreshView):
     """Public token refresh endpoint -- disables authentication check so expired headers don't block refresh."""
     authentication_classes = []
 
+    def post(self, request, *args, **kwargs):
+        try:
+            return super().post(request, *args, **kwargs)
+        except User.DoesNotExist:
+            return Response({'detail': 'User account for this refresh token no longer exists. Please log in again.'}, status=401)
+        except Exception as exc:
+            if 'does not exist' in str(exc).lower():
+                return Response({'detail': 'Invalid or expired token. Please log in again.'}, status=401)
+            raise exc
+
+
 
 class RegisterView(generics.CreateAPIView):
     """POST /api/auth/register/  -- Milestone 1: user registration"""

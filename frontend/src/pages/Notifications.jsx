@@ -1,11 +1,18 @@
 import { useEffect, useState } from 'react'
 import api from '../api'
+import { useAuth } from '../AuthContext'
 
 export default function Notifications() {
+  const { profile } = useAuth()
   const [items, setItems] = useState([])
   const [selectedIds, setSelectedIds] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [testSuccess, setTestSuccess] = useState('')
+  const [testSending, setTestSending] = useState(false)
+  const [pushStatus, setPushStatus] = useState(() => {
+    return typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
+  })
 
   const loadNotifications = async () => {
     setLoading(true)
@@ -28,6 +35,37 @@ export default function Notifications() {
   useEffect(() => {
     loadNotifications()
   }, [])
+
+  const handleSendTestEmail = async () => {
+    setTestSending(true)
+    setTestSuccess('')
+    setError('')
+    try {
+      const { data } = await api.post('/api/notifications/test-email/')
+      setTestSuccess(data?.detail || 'Test notification sent to your Google Account email!')
+      await loadNotifications()
+    } catch (err) {
+      const msg = err?.response?.data?.detail || 'Unable to send test notification email.'
+      setError(msg)
+    } finally {
+      setTestSending(false)
+    }
+  }
+
+  const handleRequestPushPermission = async () => {
+    if (typeof Notification === 'undefined') {
+      alert('Browser Push Notifications are not supported by this browser.')
+      return
+    }
+    const perm = await Notification.requestPermission()
+    setPushStatus(perm)
+    if (perm === 'granted') {
+      new Notification('BudgetBuddy Push Enabled 🔔', {
+        body: 'Mobile and browser push notifications are active for your account!',
+        icon: '/favicon.ico'
+      })
+    }
+  }
 
   const toggleSelect = (id) => {
     setSelectedIds((prev) =>
@@ -160,6 +198,66 @@ export default function Notifications() {
           )}
         </div>
       </div>
+
+      {/* Google Account Email & Mobile Notification Status Card */}
+      <div className="card" style={{
+        marginBottom: 20,
+        padding: 20,
+        background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(59, 130, 246, 0.05) 100%)',
+        border: '1px solid rgba(16, 185, 129, 0.2)',
+        borderRadius: 12,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{ fontSize: 20 }}>📱</span>
+              <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--ink)' }}>
+                Google Account & Mobile Email Notifications
+              </h2>
+              <span className="tag" style={{ background: '#10b981', color: '#fff', fontSize: 11 }}>Active</span>
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--ink-soft)', margin: 0 }}>
+              All app alerts (budget breaches, expenses, income logs, and AI tips) are sent directly to <strong>{profile?.email || 'your registered Google Account email'}</strong> for instant mobile notifications.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              className="btn"
+              onClick={handleSendTestEmail}
+              disabled={testSending}
+              style={{
+                fontSize: 13,
+                background: '#10b981',
+                color: '#fff',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+            >
+              {testSending ? 'Sending Test…' : '✉️ Send Test to Google Email'}
+            </button>
+
+            {pushStatus !== 'granted' && (
+              <button
+                className="btn secondary"
+                onClick={handleRequestPushPermission}
+                style={{ fontSize: 13 }}
+                title="Enable browser push popups on phone/desktop"
+              >
+                🔔 Enable Mobile Push Popups
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {testSuccess && (
+        <div className="banner success-banner" style={{ marginBottom: 16, background: '#d1fae5', color: '#065f46', padding: '10px 14px', borderRadius: 8, fontSize: 13.5 }}>
+          ✅ {testSuccess}
+        </div>
+      )}
 
       {error && <div className="error-banner">{error}</div>}
 
