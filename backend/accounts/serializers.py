@@ -46,11 +46,19 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class ProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
-    email = serializers.CharField(source='user.email', read_only=True)
+    email = serializers.EmailField(source='user.email', required=False)
 
     class Meta:
         model = Profile
         fields = ['id', 'username', 'email', 'full_name', 'currency', 'monthly_income_target', 'avatar', 'created_at']
+
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop('user', {})
+        new_email = user_data.get('email')
+        if new_email and instance.user:
+            instance.user.email = new_email.strip()
+            instance.user.save(update_fields=['email'])
+        return super().update(instance, validated_data)
 
 
 class PasswordResetSerializer(serializers.Serializer):

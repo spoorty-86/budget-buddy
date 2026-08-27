@@ -14,10 +14,18 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
     Sends a rich HTML + Plain Text email notification directly to the user's Google Account / registered email
     whenever a Notification is created in BudgetBuddy.
     """
-    if created and instance.user and instance.user.email:
+    if created and instance.user:
+        recipient_email = (getattr(instance.user, 'email', '') or '').strip()
+        if not recipient_email and hasattr(instance.user, 'profile'):
+            recipient_email = (getattr(instance.user.profile, 'email', '') or '').strip()
+
+        if not recipient_email:
+            logger.warning("Notification '%s' created for user %s, but user has no email address associated.", instance.title, instance.user.username)
+            return
+
         try:
-            recipient_email = instance.user.email.strip()
             user_display_name = instance.user.first_name or instance.user.username or 'BudgetBuddy User'
+
             login_url = "https://budget-buddy-apps.vercel.app/login"
 
             subject = f"BudgetBuddy Alert: {instance.title}"
