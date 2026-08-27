@@ -60,16 +60,27 @@ export default function Budgets() {
     }
 
     try {
+      const payload = {
+        ...form,
+        budget_amount: form.monthly_limit,
+      }
+
+      const existing = items.find(
+        (b) => String(b.category) === String(form.category) && Number(b.month) === Number(form.month) && Number(b.year) === Number(form.year)
+      )
+
       if (editingId) {
-        await api.put(`/api/finance/budgets/${editingId}/`, form)
+        await api.put(`/api/finance/budgets/${editingId}/`, payload)
+      } else if (existing) {
+        await api.put(`/api/finance/budgets/${existing.id}/`, payload)
       } else {
-        await api.post('/api/finance/budgets/', form)
+        await api.post('/api/finance/budgets/', payload)
       }
       setForm(empty)
       setEditingId(null)
       load()
     } catch (err) {
-      const errMsg = formatApiError(err, `Could not ${editingId ? 'update' : 'save'} that budget. A budget for this category & month may already exist.`)
+      const errMsg = formatApiError(err, `Could not ${editingId ? 'update' : 'save'} that budget. Please check inputs and try again.`)
       setError(errMsg)
     }
   }

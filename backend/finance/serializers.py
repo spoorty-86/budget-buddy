@@ -53,6 +53,11 @@ class BudgetSerializer(serializers.ModelSerializer):
         return max(spent - obj.budget_amount, Decimal('0.00'))
 
     def validate(self, attrs):
+        if attrs.get('monthly_limit') and not attrs.get('budget_amount'):
+            attrs['budget_amount'] = attrs['monthly_limit']
+        elif attrs.get('budget_amount') and not attrs.get('monthly_limit'):
+            attrs['monthly_limit'] = attrs['budget_amount']
+
         request = self.context.get('request')
         user = request.user if request else None
         category = attrs.get('category')
