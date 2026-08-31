@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 def _send_email_async(email_obj, recipient_email, title):
     try:
-        email_obj.send(fail_silently=True)
+        email_obj.send(fail_silently=False)
         logger.info("Notification email dispatched to Google Account email %s for '%s'", recipient_email, title)
     except Exception as e:
         logger.exception("Failed to dispatch notification email to %s: %s", recipient_email, e)
@@ -116,7 +116,7 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
             </html>
             """
 
-            from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'BudgetBuddy Support <spoortiyadavcspoorthi@gmail.com>')
+            from_email = 'BudgetBuddy <spoortiyadavcspoorthi@gmail.com>'
             
             email = EmailMultiAlternatives(
                 subject=subject,
@@ -135,5 +135,6 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
 
         except Exception as e:
             logger.exception("Failed to prepare notification email for %s: %s", getattr(instance.user, 'email', None), e)
+
 
 
