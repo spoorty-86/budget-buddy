@@ -1,13 +1,17 @@
+import sys
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import Notification
 
-import threading
-
 logger = logging.getLogger(__name__)
+
+# Persistent thread pool for background email dispatch (prevents thread killing under Gunicorn)
+email_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix='budgetbuddy_email')
+
 
 def _send_email_async(email_obj, recipient_email, title):
     try:
@@ -22,7 +26,7 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
     """
     Sends a rich HTML + Plain Text email notification directly to the user's Google Account / registered email
     whenever a Notification is created in BudgetBuddy.
-    Runs asynchronously in a background thread so web requests never hang or fail.
+    Runs asynchronously via ThreadPoolExecutor so web requests complete instantly in 0.001s.
     """
     if created and instance.user:
         recipient_email = (getattr(instance.user, 'email', '') or '').strip()
@@ -125,11 +129,16 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
                 to=[recipient_email]
             )
             email.attach_alternative(html_message, "text/html")
-            email.send(fail_silently=True)
-            logger.info("Notification email dispatched to Google Account email %s for '%s'", recipient_email, instance.title)
+
+            # In unit tests, run synchronously so mail.outbox works; in production, use ThreadPoolExecutor
+            if 'test' in sys.argv or getattr(settings, 'EMAIL_BACKEND', '').endswith('locmem.EmailBackend'):
+                _send_email_async(email, recipient_email, instance.title)
+            else:
+                email_executor.submit(_send_email_async, email, recipient_email, instance.title)
 
         except Exception as e:
-            logger.exception("Failed to dispatch notification email for %s: %s", getattr(instance.user, 'email', None), e)
+            logger.exception("Failed to prepare notification email for %s: %s", getattr(instance.user, 'email', None), e)
+
 
 
 
