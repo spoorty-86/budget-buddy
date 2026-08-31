@@ -125,16 +125,12 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
                 to=[recipient_email]
             )
             email.attach_alternative(html_message, "text/html")
-            
-            # Dispatch asynchronously in a background thread
-            threading.Thread(
-                target=_send_email_async,
-                args=(email, recipient_email, instance.title),
-                daemon=True
-            ).start()
+            email.send(fail_silently=True)
+            logger.info("Notification email dispatched to Google Account email %s for '%s'", recipient_email, instance.title)
 
         except Exception as e:
-            logger.exception("Failed to prepare notification email for %s: %s", getattr(instance.user, 'email', None), e)
+            logger.exception("Failed to dispatch notification email for %s: %s", getattr(instance.user, 'email', None), e)
+
 
 
 
