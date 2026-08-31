@@ -253,7 +253,8 @@ EMAIL_USE_TLS = default_email_use_tls
 EMAIL_USE_SSL = default_email_use_ssl
 EMAIL_HOST_USER = email_user
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '').strip()
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'BudgetBuddy Support <no-reply@budgetbuddy.local>')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'BudgetBuddy <b6e56d001@smtp-brevo.com>')
+
 
 
 

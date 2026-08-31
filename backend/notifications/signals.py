@@ -116,7 +116,7 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
             </html>
             """
 
-            from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'BudgetBuddy Support <no-reply@budgetbuddy.local>')
+            from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'BudgetBuddy <b6e56d001@smtp-brevo.com>')
             
             email = EmailMultiAlternatives(
                 subject=subject,
