@@ -5,7 +5,16 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import Notification
 
+import threading
+
 logger = logging.getLogger(__name__)
+
+def _send_email_async(email_obj, recipient_email, title):
+    try:
+        email_obj.send(fail_silently=True)
+        logger.info("Notification email dispatched to Google Account email %s for '%s'", recipient_email, title)
+    except Exception as e:
+        logger.exception("Failed to dispatch notification email to %s: %s", recipient_email, e)
 
 
 @receiver(post_save, sender=Notification)
@@ -13,6 +22,7 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
     """
     Sends a rich HTML + Plain Text email notification directly to the user's Google Account / registered email
     whenever a Notification is created in BudgetBuddy.
+    Runs asynchronously in a background thread so web requests never hang or fail.
     """
     if created and instance.user:
         recipient_email = (getattr(instance.user, 'email', '') or '').strip()
@@ -25,12 +35,9 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
 
         try:
             user_display_name = instance.user.first_name or instance.user.username or 'BudgetBuddy User'
-
             login_url = "https://budget-buddy-apps.vercel.app/login"
-
             subject = f"BudgetBuddy Alert: {instance.title}"
             
-            # Plain Text fallback
             text_message = (
                 f"Hello {user_display_name},\n\n"
                 f"You have received a new notification in BudgetBuddy:\n\n"
@@ -43,7 +50,6 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
                 f"BudgetBuddy Support Team"
             )
 
-            # HTML Rich Template
             type_color = "#10b981" if instance.notification_type == "SUCCESS" else (
                 "#ef4444" if instance.notification_type == "ERROR" else (
                     "#f59e0b" if instance.notification_type == "WARNING" else "#3b82f6"
@@ -119,9 +125,15 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
                 to=[recipient_email]
             )
             email.attach_alternative(html_message, "text/html")
-            email.send(fail_silently=True)
+            
+            # Dispatch asynchronously in a background thread
+            threading.Thread(
+                target=_send_email_async,
+                args=(email, recipient_email, instance.title),
+                daemon=True
+            ).start()
 
-            logger.info("Notification email dispatched to Google Account email %s for '%s'", recipient_email, instance.title)
         except Exception as e:
-            logger.exception("Failed to dispatch notification email to %s: %s", getattr(instance.user, 'email', None), e)
+            logger.exception("Failed to prepare notification email for %s: %s", getattr(instance.user, 'email', None), e)
+
 
