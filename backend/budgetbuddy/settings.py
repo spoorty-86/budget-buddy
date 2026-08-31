@@ -225,35 +225,17 @@ REST_FRAMEWORK = {
     ),
 }
 
-# Email Setup using Brevo SMTP Relay / Standard SMTP (Supports Google Account Email Notifications)
-email_user = os.environ.get('EMAIL_HOST_USER', '').strip()
-email_host_env = os.environ.get('EMAIL_HOST', '').strip()
-
-if email_host_env or email_user:
-    default_email_backend = 'django.core.mail.backends.smtp.EmailBackend'
-    default_email_host = email_host_env or 'smtp-relay.brevo.com'
-    default_email_port = int(os.environ.get('EMAIL_PORT', 465))
-    if default_email_port == 465:
-        default_email_use_ssl = os.environ.get('EMAIL_USE_SSL', 'True').lower() in ('true', '1', 'yes')
-        default_email_use_tls = os.environ.get('EMAIL_USE_TLS', 'False').lower() in ('true', '1', 'yes')
-    else:
-        default_email_use_ssl = os.environ.get('EMAIL_USE_SSL', 'False').lower() in ('true', '1', 'yes')
-        default_email_use_tls = os.environ.get('EMAIL_USE_TLS', 'True').lower() in ('true', '1', 'yes')
-else:
-    default_email_backend = 'django.core.mail.backends.console.EmailBackend' if DEBUG else 'django.core.mail.backends.dummy.EmailBackend'
-    default_email_host = 'localhost'
-    default_email_port = int(os.environ.get('EMAIL_PORT', 1025))
-    default_email_use_ssl = False
-    default_email_use_tls = False
-
-EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', default_email_backend)
-EMAIL_HOST = default_email_host
-EMAIL_PORT = default_email_port
-EMAIL_USE_TLS = default_email_use_tls
-EMAIL_USE_SSL = default_email_use_ssl
-EMAIL_HOST_USER = email_user
+# Email Setup using Brevo SMTP Relay (Supports Google Account Email Notifications)
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp-relay.brevo.com').strip() or 'smtp-relay.brevo.com'
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 465))
+EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'True').lower() in ('true', '1', 'yes')
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'False').lower() in ('true', '1', 'yes')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'b6e56d001@smtp-brevo.com').strip() or 'b6e56d001@smtp-brevo.com'
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '').strip()
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'BudgetBuddy Support <spoortiyadavcspoorthi@gmail.com>')
+DEFAULT_FROM_EMAIL = 'BudgetBuddy Support <spoortiyadavcspoorthi@gmail.com>'
+
+
 
 
 
