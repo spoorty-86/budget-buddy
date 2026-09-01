@@ -199,7 +199,7 @@ export default function Notifications() {
         </div>
       </div>
 
-      {/* Google Account Email & Mobile Notification Status Card */}
+      {/* Real-time In-App Notifications Card */}
       <div className="card" style={{
         marginBottom: 20,
         padding: 20,
@@ -210,14 +210,14 @@ export default function Notifications() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <span style={{ fontSize: 20 }}>📱</span>
+              <span style={{ fontSize: 20 }}>🔔</span>
               <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--ink)' }}>
-                Google Account & Mobile Email Notifications
+                Real-Time In-App Notifications
               </h2>
               <span className="tag" style={{ background: '#10b981', color: '#fff', fontSize: 11 }}>Active</span>
             </div>
             <p style={{ fontSize: 13, color: 'var(--ink-soft)', margin: 0 }}>
-              All app alerts (budget breaches, expenses, income logs, and AI tips) are sent directly to <strong>{profile?.email || 'your registered Google Account email'}</strong> for instant mobile notifications.
+              All app alerts (budget breaches, expenses, income logs, and AI tips) appear directly in your in-app notification center.
             </p>
           </div>
 
@@ -236,8 +236,9 @@ export default function Notifications() {
                 gap: 6
               }}
             >
-              {testSending ? 'Sending Test…' : '✉️ Send Test to Google Email'}
+              {testSending ? 'Creating Test…' : '🔔 Create Test Notification'}
             </button>
+
 
             {pushStatus !== 'granted' && (
               <button

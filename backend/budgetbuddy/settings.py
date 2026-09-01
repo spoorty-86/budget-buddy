@@ -225,15 +225,9 @@ REST_FRAMEWORK = {
     ),
 }
 
-# Email Setup using Brevo SMTP Relay (Supports Google Account Email Notifications)
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp-relay.brevo.com').strip() or 'smtp-relay.brevo.com'
-EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 465))
-EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'True').lower() in ('true', '1', 'yes')
-EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'False').lower() in ('true', '1', 'yes')
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'b6e56d001@smtp-brevo.com').strip() or 'b6e56d001@smtp-brevo.com'
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '').strip()
-DEFAULT_FROM_EMAIL = 'BudgetBuddy Support <spoortiyadavcspoorthi@gmail.com>'
+# Email Backend (Disabled email dispatch on deployment per configuration)
+EMAIL_BACKEND = 'django.core.mail.backends.dummy.EmailBackend'
+
 
 
 

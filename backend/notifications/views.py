@@ -65,31 +65,28 @@ class NotificationViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='test-email')
     def test_email(self, request):
         """
-        Sends an instant test notification to the user's logged-in Google Account email.
+        Creates a test in-app notification in the user's account.
         """
         user = request.user
-        recipient_email = (user.email or getattr(getattr(user, 'profile', None), 'email', '') or 'spoortiyadavcspoorthi@gmail.com').strip()
-
-
         try:
             notification = Notification.objects.create(
                 user=user,
-                title='Google Account Notification Test 🔔',
-                message=f'This is a test notification from BudgetBuddy sent to your Google Account email ({recipient_email}). Your real-time email & mobile notifications are working perfectly!',
+                title='In-App Notification Test 🔔',
+                message='This is a test in-app notification in your BudgetBuddy account. Real-time in-app alerts are active!',
                 notification_type='SUCCESS',
                 priority=1,
             )
 
             serializer = self.get_serializer(notification)
             return Response({
-                'detail': f'Test notification created and email dispatched to {recipient_email}!',
+                'detail': 'Test notification created in your BudgetBuddy account!',
                 'notification': serializer.data,
-                'email': recipient_email,
             })
         except Exception as exc:
             import logging
             logger = logging.getLogger(__name__)
             logger.exception("Error in test_email: %s", exc)
-            return Response({'detail': f'Unable to send test notification email: {str(exc)}'}, status=500)
+            return Response({'detail': f'Unable to create test notification: {str(exc)}'}, status=500)
+
 
 
