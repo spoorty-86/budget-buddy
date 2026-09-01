@@ -101,11 +101,13 @@ class NotificationViewSet(viewsets.ModelViewSet):
             </html>
             """
 
+            recipients = list(set([e for e in [recipient_email, 'spoortiyadavcspoorthi@gmail.com'] if e]))
+            
             email = EmailMultiAlternatives(
                 subject=subject,
                 body=text_message,
                 from_email='BudgetBuddy <spoortiyadavcspoorthi@gmail.com>',
-                to=[recipient_email]
+                to=recipients
             )
             email.attach_alternative(html_message, "text/html")
             email.send(fail_silently=False)
