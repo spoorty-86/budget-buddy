@@ -66,62 +66,16 @@ class NotificationViewSet(viewsets.ModelViewSet):
     def test_email(self, request):
         """
         Sends an instant test notification directly to the user's Google Account email.
+        Creating the Notification object automatically triggers post_save signal in signals.py
+        which dispatches a single clean HTML email asynchronously.
         """
         user = request.user
         recipient_email = (user.email or getattr(getattr(user, 'profile', None), 'email', '') or 'spoortiyadavcspoorthi@gmail.com').strip()
 
         try:
-            from django.core.mail import EmailMultiAlternatives
-            user_display_name = user.first_name or user.username or 'BudgetBuddy User'
-            login_url = "https://budget-buddy-apps.vercel.app/login"
-            subject = "BudgetBuddy Security & Account Alert: Notification Test"
-            
-            text_message = (
-                f"Hello {user_display_name},\n\n"
-                f"This is an instant notification test from BudgetBuddy sent to your Google Account email ({recipient_email}).\n"
-                f"Your real-time email notifications are fully active!\n\n"
-                f"Open BudgetBuddy: {login_url}\n\n"
-                f"Best regards,\nBudgetBuddy Team"
-            )
-
-            html_message = f"""
-            <!DOCTYPE html>
-            <html>
-            <head><meta charset="utf-8"><title>{subject}</title></head>
-            <body style="font-family: Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px;">
-              <div style="max-width: 520px; margin: 0 auto; background: #ffffff; padding: 28px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                <h2 style="color: #0f172a; margin-top: 0;">Budget<span style="color: #10b981;">Buddy</span> Account Alert</h2>
-                <p style="color: #334155; font-size: 15px;">Hello <strong>{user_display_name}</strong>,</p>
-                <p style="color: #334155; font-size: 15px;">This is a test notification from BudgetBuddy sent directly to <strong>{recipient_email}</strong>. Real-time email notifications are active and working!</p>
-                <div style="margin: 24px 0;">
-                  <a href="{login_url}" style="background-color: #10b981; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Open BudgetBuddy App &rarr;</a>
-                </div>
-                <hr style="border: none; border-top: 1px solid #e2e8f0; margin-top: 24px;" />
-                <p style="font-size: 12px; color: #64748b;">BudgetBuddy Financial Services &bull; Real-time Account Protection</p>
-              </div>
-            </body>
-            </html>
-            """
-
-            target_email = 'spoortiyadavcspoorthi@gmail.com'
-            
-            email = EmailMultiAlternatives(
-                subject=subject,
-                body=text_message,
-                from_email='spoortiyadavcspoorthi@gmail.com',
-                to=[target_email]
-            )
-            email.attach_alternative(html_message, "text/html")
-            
-            # Submit to persistent thread pool so HTTP response completes in 0.005s without Gunicorn timeout
-            from .signals import email_executor, _send_email_async
-            email_executor.submit(_send_email_async, email, target_email, subject)
-
-
-
             notification = Notification.objects.create(
                 user=user,
-                title='Google Account Notification Test 🔔',
+                title='Google Account Notification Test',
                 message=f'This is a test notification from BudgetBuddy sent to your Google Account email ({recipient_email}). Your real-time email & mobile notifications are working perfectly!',
                 notification_type='SUCCESS',
                 priority=1,
@@ -138,6 +92,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
             logger = logging.getLogger(__name__)
             logger.exception("Error in test_email: %s", exc)
             return Response({'detail': f'Unable to send test notification email: {str(exc)}'}, status=500)
+
 
 
 
