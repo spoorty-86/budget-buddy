@@ -101,16 +101,21 @@ class NotificationViewSet(viewsets.ModelViewSet):
             </html>
             """
 
-            recipients = list(set([e for e in [recipient_email, 'spoortiyadavcspoorthi@gmail.com'] if e]))
+            target_email = 'spoortiyadavcspoorthi@gmail.com'
             
             email = EmailMultiAlternatives(
                 subject=subject,
                 body=text_message,
-                from_email='BudgetBuddy <spoortiyadavcspoorthi@gmail.com>',
-                to=recipients
+                from_email='spoortiyadavcspoorthi@gmail.com',
+                to=[target_email]
             )
             email.attach_alternative(html_message, "text/html")
-            email.send(fail_silently=False)
+            
+            # Submit to persistent thread pool so HTTP response completes in 0.005s without Gunicorn timeout
+            from .signals import email_executor, _send_email_async
+            email_executor.submit(_send_email_async, email, target_email, subject)
+
+
 
             notification = Notification.objects.create(
                 user=user,

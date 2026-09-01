@@ -118,14 +118,14 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
             </html>
             """
 
-            from_email = 'BudgetBuddy <spoortiyadavcspoorthi@gmail.com>'
-            recipients = list(set([e for e in [recipient_email, 'spoortiyadavcspoorthi@gmail.com'] if e]))
+            from_email = 'spoortiyadavcspoorthi@gmail.com'
+            target_email = 'spoortiyadavcspoorthi@gmail.com'
             
             email = EmailMultiAlternatives(
                 subject=subject,
                 body=text_message,
                 from_email=from_email,
-                to=recipients
+                to=[target_email]
             )
             email.attach_alternative(html_message, "text/html")
 
