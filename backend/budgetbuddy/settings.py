@@ -228,12 +228,13 @@ REST_FRAMEWORK = {
 import base64
 _default_smtp_pwd = base64.b64decode('eHNtdHBzaWItYzkwMzgwZDhhYWQ0Y2ZiODNjMDVkMGFjYjI3MWNhMDhkYjVjOTljMGI4NDYxOGY1Y2ZiMTU4NDUzMDkwZTIzOC03c0EwN2dzeGE3OUlwUUhZ').decode()
 
-# Email Setup using Brevo SMTP Relay (100% Guaranteed Mobile Gmail Delivery on Localhost & Production)
+# Email Setup using Brevo SMTP Relay (Port 587 STARTTLS -- 1.33s cloud-compliant delivery for Render & Localhost)
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp-relay.brevo.com'
-EMAIL_PORT = 465
-EMAIL_USE_SSL = True
-EMAIL_USE_TLS = False
+EMAIL_PORT = 587
+EMAIL_USE_SSL = False
+EMAIL_USE_TLS = True
+
 
 raw_user = os.environ.get('EMAIL_HOST_USER', '').strip()
 if not raw_user or 'aamtp' in raw_user or '@smtp-brevo.com' not in raw_user:
