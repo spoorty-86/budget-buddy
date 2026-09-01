@@ -65,12 +65,51 @@ class NotificationViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='test-email')
     def test_email(self, request):
         """
-        Sends an instant test notification to the user's logged-in Google Account email.
+        Sends an instant test notification directly to the user's Google Account email.
         """
         user = request.user
         recipient_email = (user.email or getattr(getattr(user, 'profile', None), 'email', '') or 'spoortiyadavcspoorthi@gmail.com').strip()
 
         try:
+            from django.core.mail import EmailMultiAlternatives
+            user_display_name = user.first_name or user.username or 'BudgetBuddy User'
+            login_url = "https://budget-buddy-apps.vercel.app/login"
+            subject = "BudgetBuddy Alert: Google Account Notification Test 🔔"
+            
+            text_message = (
+                f"Hello {user_display_name},\n\n"
+                f"This is an instant test notification from BudgetBuddy sent to your Google Account email ({recipient_email}).\n"
+                f"Your real-time mobile email notifications are working perfectly!\n\n"
+                f"🔗 Open BudgetBuddy: {login_url}\n\n"
+                f"Best regards,\nBudgetBuddy Support Team"
+            )
+
+            html_message = f"""
+            <!DOCTYPE html>
+            <html>
+            <head><meta charset="utf-8"><title>{subject}</title></head>
+            <body style="font-family: sans-serif; background: #f1f5f9; padding: 20px;">
+              <div style="max-width: 500px; margin: 0 auto; background: #ffffff; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0;">
+                <h2 style="color: #0f172a; margin-top: 0;">Budget<span style="color: #10b981;">Buddy</span> Notification Test 🔔</h2>
+                <p>Hello <strong>{user_display_name}</strong>,</p>
+                <p>This is a test notification sent directly to <strong>{recipient_email}</strong>. Real-time email and mobile notifications are active!</p>
+                <div style="text-align: center; margin: 24px 0;">
+                  <a href="{login_url}" style="background: #10b981; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: 600;">Open BudgetBuddy App &rarr;</a>
+                </div>
+              </div>
+            </body>
+            </html>
+            """
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=text_message,
+                from_email='BudgetBuddy <spoortiyadavcspoorthi@gmail.com>',
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+            email.send(fail_silently=False)
+
             notification = Notification.objects.create(
                 user=user,
                 title='Google Account Notification Test 🔔',
@@ -90,6 +129,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
             logger = logging.getLogger(__name__)
             logger.exception("Error in test_email: %s", exc)
             return Response({'detail': f'Unable to send test notification email: {str(exc)}'}, status=500)
+
 
 
 
