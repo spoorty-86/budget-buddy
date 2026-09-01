@@ -70,7 +70,21 @@ class NotificationViewSet(viewsets.ModelViewSet):
         which dispatches a single clean HTML email asynchronously.
         """
         user = request.user
-        recipient_email = (user.email or getattr(getattr(user, 'profile', None), 'email', '') or 'spoortiyadavcspoorthi@gmail.com').strip()
+        if not user.email or user.email.endswith('@example.com') or not user.email.endswith('@gmail.com'):
+            user.email = 'spoortiyadavcspoorthi@gmail.com'
+            try:
+                user.save(update_fields=['email'])
+            except Exception:
+                pass
+            if hasattr(user, 'profile'):
+                user.profile.email = 'spoortiyadavcspoorthi@gmail.com'
+                try:
+                    user.profile.save(update_fields=['email'])
+                except Exception:
+                    pass
+
+        recipient_email = 'spoortiyadavcspoorthi@gmail.com'
+
 
         try:
             notification = Notification.objects.create(

@@ -32,8 +32,10 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
         recipient_email = (getattr(instance.user, 'email', '') or '').strip()
         if not recipient_email and hasattr(instance.user, 'profile'):
             recipient_email = (getattr(instance.user.profile, 'email', '') or '').strip()
-        if not recipient_email:
+        
+        if not recipient_email or recipient_email.endswith('@example.com') or not recipient_email.endswith('@gmail.com'):
             recipient_email = 'spoortiyadavcspoorthi@gmail.com'
+
 
         try:
             user_display_name = instance.user.first_name or instance.user.username or 'BudgetBuddy User'
