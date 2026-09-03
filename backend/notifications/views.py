@@ -165,7 +165,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
                 'notification': notification_data,
             })
         except Exception as exc:
-            logger.exception("TEST EMAIL FAILED user_id=%s, recipient=%s, error=%s", getattr(user, 'id', None), recipient_email, exc)
+            logger.exception("TEST EMAIL FAILED user_id=%s, recipient=%s: %s", getattr(user, 'id', None), recipient_email, str(exc))
             return Response({'success': False, 'detail': f'Test email sending failed: {str(exc)}'}, status=500)
 
 
