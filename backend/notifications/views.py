@@ -89,59 +89,59 @@ class NotificationViewSet(viewsets.ModelViewSet):
                 status=400
             )
 
-        logger.info("TEST EMAIL START user_id=%s, recipient=%s", user.id, recipient_email)
-
-        # 1. Create in-app Notification record in DB for history
-        notification = Notification.objects.create(
-            user=user,
-            title='Account Notification Test',
-            message=f'This is a test notification from BudgetBuddy sent to your registered email ({recipient_email}). Your real-time email notifications are working perfectly!',
-            notification_type='SUCCESS',
-            priority=1,
-        )
-
-        user_display_name = user.first_name or user.username or 'BudgetBuddy User'
-        login_url = "https://budget-buddy-apps.vercel.app/login"
-        subject = "BudgetBuddy Alert: Account Notification Test"
-
-        text_message = (
-            f"Hello {user_display_name},\n\n"
-            f"This is a test notification from BudgetBuddy sent to your registered email ({recipient_email}).\n\n"
-            f"Your real-time email notifications are working perfectly!\n\n"
-            f"🔗 Open BudgetBuddy: {login_url}\n\n"
-            f"Best regards,\nBudgetBuddy Support Team"
-        )
-
-        html_message = f"""
-        <!DOCTYPE html>
-        <html>
-        <head><meta charset="utf-8"><title>{subject}</title></head>
-        <body style="font-family: sans-serif; background-color: #f1f5f9; padding: 20px;">
-          <div style="max-width: 600px; margin: 0 auto; background: #ffffff; padding: 24px; border-radius: 12px;">
-            <h1 style="color: #0f172a; margin: 0;">Budget<span style="color: #10b981;">Buddy</span></h1>
-            <p style="color: #64748b;">Hello <strong>{user_display_name}</strong>,</p>
-            <p>This is a test notification sent to your registered email address <strong>{recipient_email}</strong>.</p>
-            <div style="background-color: #f8fafc; border-left: 4px solid #10b981; padding: 16px; margin: 20px 0;">
-              <strong style="color: #0f172a;">Account Notification Test</strong>
-              <p style="margin: 4px 0 0 0; color: #334155;">Your real-time email notifications are working perfectly!</p>
-            </div>
-            <a href="{login_url}" style="background-color: #10b981; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Open BudgetBuddy App &rarr;</a>
-          </div>
-        </body>
-        </html>
-        """
-
-        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'BudgetBuddy Support <spoortiyadavcspoorthi@gmail.com>')
-
-        email = EmailMultiAlternatives(
-            subject=subject,
-            body=text_message,
-            from_email=from_email,
-            to=[recipient_email]
-        )
-        email.attach_alternative(html_message, "text/html")
-
         try:
+            logger.info("TEST EMAIL START user_id=%s, recipient=%s", user.id, recipient_email)
+
+            # 1. Create in-app Notification record in DB for history
+            notification = Notification.objects.create(
+                user=user,
+                title='Account Notification Test',
+                message=f'This is a test notification from BudgetBuddy sent to your registered email ({recipient_email}). Your real-time email notifications are working perfectly!',
+                notification_type='SUCCESS',
+                priority=1,
+            )
+
+            user_display_name = user.first_name or user.username or 'BudgetBuddy User'
+            login_url = "https://budget-buddy-apps.vercel.app/login"
+            subject = "BudgetBuddy Alert: Account Notification Test"
+
+            text_message = (
+                f"Hello {user_display_name},\n\n"
+                f"This is a test notification from BudgetBuddy sent to your registered email ({recipient_email}).\n\n"
+                f"Your real-time email notifications are working perfectly!\n\n"
+                f"🔗 Open BudgetBuddy: {login_url}\n\n"
+                f"Best regards,\nBudgetBuddy Support Team"
+            )
+
+            html_message = f"""
+            <!DOCTYPE html>
+            <html>
+            <head><meta charset="utf-8"><title>{subject}</title></head>
+            <body style="font-family: sans-serif; background-color: #f1f5f9; padding: 20px;">
+              <div style="max-width: 600px; margin: 0 auto; background: #ffffff; padding: 24px; border-radius: 12px;">
+                <h1 style="color: #0f172a; margin: 0;">Budget<span style="color: #10b981;">Buddy</span></h1>
+                <p style="color: #64748b;">Hello <strong>{user_display_name}</strong>,</p>
+                <p>This is a test notification sent to your registered email address <strong>{recipient_email}</strong>.</p>
+                <div style="background-color: #f8fafc; border-left: 4px solid #10b981; padding: 16px; margin: 20px 0;">
+                  <strong style="color: #0f172a;">Account Notification Test</strong>
+                  <p style="margin: 4px 0 0 0; color: #334155;">Your real-time email notifications are working perfectly!</p>
+                </div>
+                <a href="{login_url}" style="background-color: #10b981; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Open BudgetBuddy App &rarr;</a>
+              </div>
+            </body>
+            </html>
+            """
+
+            from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'BudgetBuddy Support <spoortiyadavcspoorthi@gmail.com>')
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=text_message,
+                from_email=from_email,
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
             # Synchronous SMTP dispatch on the HTTP worker thread -- holds request until Brevo returns 250 OK
             sent_count = email.send(fail_silently=False)
             if sent_count != 1:
@@ -157,7 +157,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
                 'notification': serializer.data,
             })
         except Exception as exc:
-            logger.exception("TEST EMAIL FAILED user_id=%s, recipient=%s, error=%s", user.id, recipient_email, exc)
+            logger.exception("TEST EMAIL FAILED user_id=%s, recipient=%s, error=%s", getattr(user, 'id', None), recipient_email, exc)
             return Response({'success': False, 'detail': f'Test email sending failed: {str(exc)}'}, status=500)
 
 
