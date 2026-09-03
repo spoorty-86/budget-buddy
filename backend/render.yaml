@@ -20,11 +20,11 @@ services:
       - key: EMAIL_HOST
         value: "smtp-relay.brevo.com"
       - key: EMAIL_PORT
-        value: "465"
+        value: "587"
       - key: EMAIL_USE_SSL
-        value: "True"
-      - key: EMAIL_USE_TLS
         value: "False"
+      - key: EMAIL_USE_TLS
+        value: "True"
       - key: EMAIL_HOST_USER
         value: "b6e56d001@smtp-brevo.com"
       - key: EMAIL_HOST_PASSWORD
