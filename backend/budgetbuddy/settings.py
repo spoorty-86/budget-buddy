@@ -243,7 +243,7 @@ else:
     EMAIL_HOST_USER = raw_user
 
 raw_pwd = os.environ.get('EMAIL_HOST_PASSWORD', '').strip()
-if not raw_pwd or len(raw_pwd) < 20:
+if not raw_pwd or len(raw_pwd) < 20 or not raw_pwd.startswith('xsmtpsib-'):
     EMAIL_HOST_PASSWORD = _default_smtp_pwd
 else:
     EMAIL_HOST_PASSWORD = raw_pwd
