@@ -131,3 +131,35 @@ class NotificationTaskTests(TestCase):
         for n in notifs:
             self.assertFalse(n.is_read, f"Notification '{n.title}' was automatically marked as read!")
 
+    def test_user_specific_email_isolation(self):
+        """Verify that User A receives notifications ONLY at User A's email and User B ONLY at User B's email."""
+        user_a = User.objects.create_user(username='alice', email='alice@gmail.com', password='Password123!')
+        user_b = User.objects.create_user(username='bob', email='bob@gmail.com', password='Password123!')
+
+        mail.outbox = []
+
+        # Trigger notification for User A (Alice)
+        Notification.objects.create(
+            user=user_a,
+            title='Alice Alert',
+            message='Hello Alice',
+            notification_type='INFO'
+        )
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[-1].to, ['alice@gmail.com'])
+        self.assertNotIn('bob@gmail.com', mail.outbox[-1].to)
+
+        # Trigger notification for User B (Bob)
+        Notification.objects.create(
+            user=user_b,
+            title='Bob Alert',
+            message='Hello Bob',
+            notification_type='INFO'
+        )
+
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertEqual(mail.outbox[-1].to, ['bob@gmail.com'])
+        self.assertNotIn('alice@gmail.com', mail.outbox[-1].to)
+
+

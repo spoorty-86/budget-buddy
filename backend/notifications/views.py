@@ -65,32 +65,26 @@ class NotificationViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='test-email')
     def test_email(self, request):
         """
-        Sends an instant test notification directly to the user's Google Account email.
+        Sends an instant test notification directly to the authenticated user's registered email address.
         Creating the Notification object automatically triggers post_save signal in signals.py
-        which dispatches a single clean HTML email asynchronously.
+        which dispatches a single clean HTML email asynchronously to request.user.email.
         """
         user = request.user
-        if not user.email or user.email.endswith('@example.com') or not user.email.endswith('@gmail.com'):
-            user.email = 'spoortiyadavcspoorthi@gmail.com'
-            try:
-                user.save(update_fields=['email'])
-            except Exception:
-                pass
-            if hasattr(user, 'profile'):
-                user.profile.email = 'spoortiyadavcspoorthi@gmail.com'
-                try:
-                    user.profile.save(update_fields=['email'])
-                except Exception:
-                    pass
+        recipient_email = (getattr(user, 'email', '') or '').strip()
+        if not recipient_email and hasattr(user, 'profile'):
+            recipient_email = (getattr(user.profile, 'email', '') or '').strip()
 
-        recipient_email = 'spoortiyadavcspoorthi@gmail.com'
-
+        if not recipient_email:
+            return Response(
+                {'detail': 'Your account does not have a registered email address. Please update your profile with a valid email.'},
+                status=400
+            )
 
         try:
             notification = Notification.objects.create(
                 user=user,
-                title='Google Account Notification Test',
-                message=f'This is a test notification from BudgetBuddy sent to your Google Account email ({recipient_email}). Your real-time email & mobile notifications are working perfectly!',
+                title='Account Notification Test',
+                message=f'This is a test notification from BudgetBuddy sent to your registered email ({recipient_email}). Your real-time email notifications are working perfectly!',
                 notification_type='SUCCESS',
                 priority=1,
             )
@@ -106,6 +100,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
             logger = logging.getLogger(__name__)
             logger.exception("Error in test_email: %s", exc)
             return Response({'detail': f'Unable to send test notification email: {str(exc)}'}, status=500)
+
 
 
 

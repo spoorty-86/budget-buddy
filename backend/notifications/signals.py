@@ -32,10 +32,10 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
         recipient_email = (getattr(instance.user, 'email', '') or '').strip()
         if not recipient_email and hasattr(instance.user, 'profile'):
             recipient_email = (getattr(instance.user.profile, 'email', '') or '').strip()
-        
-        if not recipient_email or recipient_email.endswith('@example.com') or not recipient_email.endswith('@gmail.com'):
-            recipient_email = 'spoortiyadavcspoorthi@gmail.com'
 
+        if not recipient_email:
+            logger.info("Skipping email notification for user %s (ID: %s): No email address configured.", instance.user.username, instance.user.id)
+            return
 
         try:
             user_display_name = instance.user.first_name or instance.user.username or 'BudgetBuddy User'
@@ -76,7 +76,7 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
                     <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">
                       Budget<span style="color: #10b981;">Buddy</span>
                     </h1>
-                    <p style="color: #94a3b8; margin: 4px 0 0 0; font-size: 13px;">Google Account Mobile Email Alert</p>
+                    <p style="color: #94a3b8; margin: 4px 0 0 0; font-size: 13px;">Real-Time Account Notification</p>
                   </td>
                 </tr>
 
@@ -120,14 +120,13 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
             </html>
             """
 
-            from_email = 'spoortiyadavcspoorthi@gmail.com'
-            target_email = 'spoortiyadavcspoorthi@gmail.com'
+            from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'BudgetBuddy Support <notifications@budgetbuddy.app>')
             
             email = EmailMultiAlternatives(
                 subject=subject,
                 body=text_message,
                 from_email=from_email,
-                to=[target_email]
+                to=[recipient_email]
             )
             email.attach_alternative(html_message, "text/html")
 
@@ -136,6 +135,7 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
                 _send_email_async(email, recipient_email, instance.title)
             else:
                 email_executor.submit(_send_email_async, email, recipient_email, instance.title)
+
 
         except Exception as e:
             logger.exception("Failed to prepare notification email for %s: %s", getattr(instance.user, 'email', None), e)

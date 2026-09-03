@@ -30,5 +30,5 @@ services:
       - key: EMAIL_HOST_PASSWORD
         sync: false
       - key: DEFAULT_FROM_EMAIL
-        value: "BudgetBuddy Support <spoortiyadavcspoorthi@gmail.com>"
+        value: "BudgetBuddy Support <notifications@budgetbuddy.app>"
 
