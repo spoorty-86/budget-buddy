@@ -5,6 +5,7 @@ import api from '../api'
 export default function Profile() {
   const { profile, refreshProfile } = useAuth()
   const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
   const [currency, setCurrency] = useState('INR')
   const [monthlyTarget, setMonthlyTarget] = useState('')
   const [avatar, setAvatar] = useState('')
@@ -15,6 +16,7 @@ export default function Profile() {
   useEffect(() => {
     if (profile) {
       setFullName(profile.full_name || '')
+      setEmail(profile.email || '')
       setCurrency(profile.currency || 'INR')
       setMonthlyTarget(profile.monthly_income_target || '')
       setAvatar(profile.avatar || '')
@@ -46,6 +48,7 @@ export default function Profile() {
     try {
       await api.patch('/api/auth/me/', {
         full_name: fullName,
+        email: email,
         currency: currency,
         monthly_income_target: monthlyTarget !== '' ? Number(monthlyTarget) : 0,
         avatar: avatar,
@@ -53,7 +56,7 @@ export default function Profile() {
       if (typeof refreshProfile === 'function') {
         await refreshProfile()
       }
-      setMessage('Profile and photo updated successfully! ✨')
+      setMessage('Profile and email settings updated successfully! ✨')
     } catch (err) {
       const detail = err?.response?.data
         ? JSON.stringify(err.response.data)
@@ -79,7 +82,7 @@ export default function Profile() {
       <div className="page-header" style={{ marginBottom: 24 }}>
         <div>
           <h1>My Profile</h1>
-          <p className="page-sub">Manage your profile photo, account details, and financial defaults.</p>
+          <p className="page-sub">Manage your profile photo, account email, and financial defaults.</p>
         </div>
       </div>
 
@@ -125,7 +128,7 @@ export default function Profile() {
         <div>
           <h2 style={{ margin: 0, fontSize: 20 }}>{profile?.full_name || profile?.username}</h2>
           <p style={{ margin: '4px 0 0', color: 'var(--ink-soft)', fontSize: 14 }}>
-            @{profile?.username} • {profile?.email}
+            @{profile?.username} • {profile?.email || 'No email registered'}
           </p>
           <span className="tag" style={{ marginTop: 8, display: 'inline-block' }}>
             Currency: {profile?.currency === 'INR' ? '₹ (INR)' : profile?.currency || 'INR'}
@@ -204,8 +207,14 @@ export default function Profile() {
               <input value={profile?.username || ''} disabled style={{ opacity: 0.7, cursor: 'not-allowed' }} />
             </div>
             <div className="field">
-              <label>Email Address</label>
-              <input value={profile?.email || ''} disabled style={{ opacity: 0.7, cursor: 'not-allowed' }} />
+              <label>Registered Notification Email Address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your.email@example.com"
+                required
+              />
             </div>
           </div>
 
