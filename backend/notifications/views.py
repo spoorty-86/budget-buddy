@@ -66,40 +66,100 @@ class NotificationViewSet(viewsets.ModelViewSet):
     def test_email(self, request):
         """
         Sends an instant test notification directly to the authenticated user's registered email address.
-        Creating the Notification object automatically triggers post_save signal in signals.py
-        which dispatches a single clean HTML email asynchronously to request.user.email.
+        Executes email.send(fail_silently=False) SYNCHRONOUSLY on the HTTP request worker thread
+        so Brevo SMTP accepts the message before returning HTTP 200.
         """
+        import logging
+        from django.conf import settings
+        from django.core.mail import EmailMultiAlternatives
+
+        logger = logging.getLogger(__name__)
+
         user = request.user
+        if not user.is_authenticated:
+            return Response({'success': False, 'detail': 'Authentication required.'}, status=401)
+
         recipient_email = (getattr(user, 'email', '') or '').strip()
         if not recipient_email and hasattr(user, 'profile'):
             recipient_email = (getattr(user.profile, 'email', '') or '').strip()
 
         if not recipient_email:
             return Response(
-                {'detail': 'Your account does not have a registered email address. Please update your profile with a valid email.'},
+                {'success': False, 'detail': 'Your account does not have a registered email address. Please update your profile with a valid email in Profile settings.'},
                 status=400
             )
 
-        try:
-            notification = Notification.objects.create(
-                user=user,
-                title='Account Notification Test',
-                message=f'This is a test notification from BudgetBuddy sent to your registered email ({recipient_email}). Your real-time email notifications are working perfectly!',
-                notification_type='SUCCESS',
-                priority=1,
-            )
+        logger.info("TEST EMAIL START user_id=%s, recipient=%s", user.id, recipient_email)
 
+        # 1. Create in-app Notification record in DB for history
+        notification = Notification.objects.create(
+            user=user,
+            title='Account Notification Test',
+            message=f'This is a test notification from BudgetBuddy sent to your registered email ({recipient_email}). Your real-time email notifications are working perfectly!',
+            notification_type='SUCCESS',
+            priority=1,
+        )
+
+        user_display_name = user.first_name or user.username or 'BudgetBuddy User'
+        login_url = "https://budget-buddy-apps.vercel.app/login"
+        subject = "BudgetBuddy Alert: Account Notification Test"
+
+        text_message = (
+            f"Hello {user_display_name},\n\n"
+            f"This is a test notification from BudgetBuddy sent to your registered email ({recipient_email}).\n\n"
+            f"Your real-time email notifications are working perfectly!\n\n"
+            f"🔗 Open BudgetBuddy: {login_url}\n\n"
+            f"Best regards,\nBudgetBuddy Support Team"
+        )
+
+        html_message = f"""
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><title>{subject}</title></head>
+        <body style="font-family: sans-serif; background-color: #f1f5f9; padding: 20px;">
+          <div style="max-width: 600px; margin: 0 auto; background: #ffffff; padding: 24px; border-radius: 12px;">
+            <h1 style="color: #0f172a; margin: 0;">Budget<span style="color: #10b981;">Buddy</span></h1>
+            <p style="color: #64748b;">Hello <strong>{user_display_name}</strong>,</p>
+            <p>This is a test notification sent to your registered email address <strong>{recipient_email}</strong>.</p>
+            <div style="background-color: #f8fafc; border-left: 4px solid #10b981; padding: 16px; margin: 20px 0;">
+              <strong style="color: #0f172a;">Account Notification Test</strong>
+              <p style="margin: 4px 0 0 0; color: #334155;">Your real-time email notifications are working perfectly!</p>
+            </div>
+            <a href="{login_url}" style="background-color: #10b981; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Open BudgetBuddy App &rarr;</a>
+          </div>
+        </body>
+        </html>
+        """
+
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'BudgetBuddy Support <spoortiyadavcspoorthi@gmail.com>')
+
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=text_message,
+            from_email=from_email,
+            to=[recipient_email]
+        )
+        email.attach_alternative(html_message, "text/html")
+
+        try:
+            # Synchronous SMTP dispatch on the HTTP worker thread -- holds request until Brevo returns 250 OK
+            sent_count = email.send(fail_silently=False)
+            if sent_count != 1:
+                logger.error("TEST EMAIL FAILED user_id=%s, recipient=%s, sent_count=%s", user.id, recipient_email, sent_count)
+                return Response({'success': False, 'detail': 'Test email was not accepted by the SMTP server.'}, status=500)
+
+            logger.info("TEST EMAIL SMTP ACCEPTED user_id=%s, recipient=%s, sent_count=%s", user.id, recipient_email, sent_count)
             serializer = self.get_serializer(notification)
             return Response({
-                'detail': f'Test notification created and email dispatched to {recipient_email}!',
+                'success': True,
+                'detail': f'Test email accepted by SMTP server and dispatched to {recipient_email}!',
+                'recipient': recipient_email,
                 'notification': serializer.data,
-                'email': recipient_email,
             })
         except Exception as exc:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.exception("Error in test_email: %s", exc)
-            return Response({'detail': f'Unable to send test notification email: {str(exc)}'}, status=500)
+            logger.exception("TEST EMAIL FAILED user_id=%s, recipient=%s, error=%s", user.id, recipient_email, exc)
+            return Response({'success': False, 'detail': f'Test email sending failed: {str(exc)}'}, status=500)
+
 
 
 

@@ -42,10 +42,14 @@ export default function Notifications() {
     setError('')
     try {
       const { data } = await api.post('/api/notifications/test-email/')
-      setTestSuccess(data?.detail || 'Test notification sent to your Google Account email!')
+      if (data?.success !== false) {
+        setTestSuccess(data?.detail || `Test email accepted by SMTP server and dispatched to ${data?.recipient || 'your registered email'}!`)
+      } else {
+        setError(data?.detail || 'Test email sending failed.')
+      }
       await loadNotifications()
     } catch (err) {
-      const msg = err?.response?.data?.detail || 'Unable to send test notification email.'
+      const msg = err?.response?.data?.detail || 'Test email could not be sent. Please check your email settings.'
       setError(msg)
     } finally {
       setTestSending(false)

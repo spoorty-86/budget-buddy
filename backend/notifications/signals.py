@@ -15,10 +15,12 @@ email_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix='budgetbud
 
 def _send_email_async(email_obj, recipient_email, title):
     try:
-        email_obj.send(fail_silently=False)
-        logger.info("Notification email dispatched to Google Account email %s for '%s'", recipient_email, title)
+        sent_count = email_obj.send(fail_silently=False)
+        logger.info("NOTIFICATION DISPATCH SUCCESS: sent_count=%s, recipient=%s, title='%s'", sent_count, recipient_email, title)
+        return sent_count
     except Exception as e:
-        logger.exception("Failed to dispatch notification email to %s: %s", recipient_email, e)
+        logger.exception("NOTIFICATION DISPATCH FAILURE: recipient=%s, error=%s", recipient_email, e)
+        return 0
 
 
 @receiver(post_save, sender=Notification)
@@ -26,9 +28,12 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
     """
     Sends a rich HTML + Plain Text email notification directly to the user's Google Account / registered email
     whenever a Notification is created in BudgetBuddy.
-    Runs asynchronously via ThreadPoolExecutor so web requests complete instantly in 0.001s.
     """
     if created and instance.user:
+        # Skip signal dispatch for Account Notification Test since test_email endpoint handles synchronous send directly
+        if instance.title == 'Account Notification Test':
+            return
+
         recipient_email = (getattr(instance.user, 'email', '') or '').strip()
         if not recipient_email and hasattr(instance.user, 'profile'):
             recipient_email = (getattr(instance.user.profile, 'email', '') or '').strip()
@@ -132,12 +137,17 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
             )
             email.attach_alternative(html_message, "text/html")
 
-            # Execute email dispatch synchronously so WSGI/Gunicorn doesn't kill background threads before Brevo SMTP finishes
-            _send_email_async(email, recipient_email, instance.title)
-
+            # In unit tests, run synchronously so mail.outbox works; in production, spawn daemon thread
+            if 'test' in sys.argv or getattr(settings, 'EMAIL_BACKEND', '').endswith('locmem.EmailBackend'):
+                _send_email_async(email, recipient_email, instance.title)
+            else:
+                import threading
+                t = threading.Thread(target=_send_email_async, args=(email, recipient_email, instance.title), daemon=True)
+                t.start()
 
         except Exception as e:
             logger.exception("Failed to prepare notification email for %s: %s", getattr(instance.user, 'email', None), e)
+
 
 
 
