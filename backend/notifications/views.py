@@ -135,34 +135,59 @@ class NotificationViewSet(viewsets.ModelViewSet):
             from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'BudgetBuddy Support <spoortiyadavcspoorthi@gmail.com>')
 
             from django.core.mail import get_connection
-            connection = get_connection(
-                backend=getattr(settings, 'EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend'),
-                host=getattr(settings, 'EMAIL_HOST', 'smtp-relay.brevo.com'),
-                port=getattr(settings, 'EMAIL_PORT', 587),
-                username=getattr(settings, 'EMAIL_HOST_USER', 'b6e56d001@smtp-brevo.com'),
-                password=getattr(settings, 'EMAIL_HOST_PASSWORD', ''),
-                use_ssl=getattr(settings, 'EMAIL_USE_SSL', False),
-                use_tls=getattr(settings, 'EMAIL_USE_TLS', True),
-                fail_silently=False,
-                timeout=10
-            )
 
-            email = EmailMultiAlternatives(
-                subject=subject,
-                body=text_message,
-                from_email=from_email,
-                to=[recipient_email],
-                connection=connection
-            )
-            email.attach_alternative(html_message, "text/html")
+            targets = [
+                {'host': 'smtp-relay.brevo.com', 'port': 587, 'use_tls': True, 'use_ssl': False},
+                {'host': 'smtp-relay.sendinblue.com', 'port': 587, 'use_tls': True, 'use_ssl': False},
+                {'host': 'smtp-relay.brevo.com', 'port': 2525, 'use_tls': True, 'use_ssl': False},
+                {'host': 'smtp-relay.sendinblue.com', 'port': 2525, 'use_tls': True, 'use_ssl': False},
+                {'host': 'smtp-relay.brevo.com', 'port': 465, 'use_tls': False, 'use_ssl': True},
+            ]
 
-            # Synchronous SMTP dispatch on the HTTP worker thread -- holds request until Brevo returns 250 OK
-            sent_count = email.send(fail_silently=False)
-            if sent_count != 1:
-                logger.error("TEST EMAIL FAILED user_id=%s, recipient=%s, sent_count=%s", user.id, recipient_email, sent_count)
-                return Response({'success': False, 'detail': 'Test email was not accepted by the SMTP server.'}, status=500)
+            smtp_user = getattr(settings, 'EMAIL_HOST_USER', 'b6e56d001@smtp-brevo.com')
+            smtp_pwd = getattr(settings, 'EMAIL_HOST_PASSWORD', '')
 
-            logger.info("TEST EMAIL SMTP ACCEPTED user_id=%s, recipient=%s, sent_count=%s", user.id, recipient_email, sent_count)
+            sent_successfully = False
+            used_target = None
+            last_smtp_error = None
+
+            for target in targets:
+                try:
+                    conn = get_connection(
+                        backend=getattr(settings, 'EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend'),
+                        host=target['host'],
+                        port=target['port'],
+                        username=smtp_user,
+                        password=smtp_pwd,
+                        use_ssl=target['use_ssl'],
+                        use_tls=target['use_tls'],
+                        fail_silently=False,
+                        timeout=4
+                    )
+
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=text_message,
+                        from_email=from_email,
+                        to=[recipient_email],
+                        connection=conn
+                    )
+                    email.attach_alternative(html_message, "text/html")
+
+                    sent_count = email.send(fail_silently=False)
+                    if sent_count == 1:
+                        sent_successfully = True
+                        used_target = target
+                        break
+                except Exception as attempt_exc:
+                    last_smtp_error = attempt_exc
+                    logger.warning("SMTP attempt failed (%s:%s): %s", target['host'], target['port'], attempt_exc)
+
+            if not sent_successfully:
+                logger.error("ALL SMTP TARGETS FAILED user_id=%s, recipient=%s, error=%s", user.id, recipient_email, last_smtp_error)
+                return Response({'success': False, 'detail': f'Test email dispatch failed across all Brevo SMTP endpoints: {str(last_smtp_error)}'}, status=500)
+
+            logger.info("TEST EMAIL SMTP ACCEPTED user_id=%s, recipient=%s via target=%s", user.id, recipient_email, used_target)
             notification_data = {
                 'id': notification.id,
                 'title': notification.title,
