@@ -132,11 +132,8 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
             )
             email.attach_alternative(html_message, "text/html")
 
-            # In unit tests, run synchronously so mail.outbox works; in production, use ThreadPoolExecutor
-            if 'test' in sys.argv or getattr(settings, 'EMAIL_BACKEND', '').endswith('locmem.EmailBackend'):
-                _send_email_async(email, recipient_email, instance.title)
-            else:
-                email_executor.submit(_send_email_async, email, recipient_email, instance.title)
+            # Execute email dispatch synchronously so WSGI/Gunicorn doesn't kill background threads before Brevo SMTP finishes
+            _send_email_async(email, recipient_email, instance.title)
 
 
         except Exception as e:
