@@ -144,7 +144,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
                 use_ssl=getattr(settings, 'EMAIL_USE_SSL', False),
                 use_tls=getattr(settings, 'EMAIL_USE_TLS', True),
                 fail_silently=False,
-                timeout=15
+                timeout=10
             )
 
             email = EmailMultiAlternatives(
