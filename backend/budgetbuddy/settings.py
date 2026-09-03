@@ -228,12 +228,12 @@ REST_FRAMEWORK = {
 import base64
 _default_smtp_pwd = base64.b64decode('eHNtdHBzaWItYzkwMzgwZDhhYWQ0Y2ZiODNjMDVkMGFjYjI3MWNhMDhkYjVjOTljMGI4NDYxOGY1Y2ZiMTU4NDUzMDkwZTIzOC03c0EwN2dzeGE3OUlwUUhZ').decode()
 
-# Email Setup using Brevo SMTP Relay (Port 587 STARTTLS -- 1.33s cloud-compliant delivery for Render & Localhost)
+# Email Setup using Brevo SMTP Relay (Port 465 SSL -- Cloud firewall compliant for Render & Vercel)
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp-relay.brevo.com'
-EMAIL_PORT = 587
-EMAIL_USE_SSL = False
-EMAIL_USE_TLS = True
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 465))
+EMAIL_USE_SSL = True
+EMAIL_USE_TLS = False
 EMAIL_TIMEOUT = 10
 
 

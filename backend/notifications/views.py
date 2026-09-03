@@ -138,10 +138,11 @@ class NotificationViewSet(viewsets.ModelViewSet):
             connection = get_connection(
                 backend=getattr(settings, 'EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend'),
                 host=getattr(settings, 'EMAIL_HOST', 'smtp-relay.brevo.com'),
-                port=getattr(settings, 'EMAIL_PORT', 587),
+                port=getattr(settings, 'EMAIL_PORT', 465),
                 username=getattr(settings, 'EMAIL_HOST_USER', 'b6e56d001@smtp-brevo.com'),
                 password=getattr(settings, 'EMAIL_HOST_PASSWORD', ''),
-                use_tls=getattr(settings, 'EMAIL_USE_TLS', True),
+                use_ssl=getattr(settings, 'EMAIL_USE_SSL', True),
+                use_tls=getattr(settings, 'EMAIL_USE_TLS', False),
                 fail_silently=False,
                 timeout=10
             )
