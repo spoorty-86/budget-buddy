@@ -37,6 +37,8 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
             logger.info("Skipping email notification for user %s (ID: %s): No email address configured.", instance.user.username, instance.user.id)
             return
 
+        logger.info("NOTIFICATION EMAIL DISPATCH: user_id=%s, username=%s, recipient_email=%s, title='%s'", instance.user.id, instance.user.username, recipient_email, instance.title)
+
         try:
             user_display_name = instance.user.first_name or instance.user.username or 'BudgetBuddy User'
             login_url = "https://budget-buddy-apps.vercel.app/login"
