@@ -122,7 +122,7 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
             </html>
             """
 
-            from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'BudgetBuddy Support <notifications@budgetbuddy.app>')
+            from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'BudgetBuddy Support <spoortiyadavcspoorthi@gmail.com>')
             
             email = EmailMultiAlternatives(
                 subject=subject,

@@ -248,7 +248,7 @@ if not raw_pwd or len(raw_pwd) < 20:
 else:
     EMAIL_HOST_PASSWORD = raw_pwd
 
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'BudgetBuddy Support <notifications@budgetbuddy.app>')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'BudgetBuddy Support <spoortiyadavcspoorthi@gmail.com>')
 
 
 
