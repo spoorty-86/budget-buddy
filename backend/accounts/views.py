@@ -90,6 +90,24 @@ class MeView(generics.RetrieveUpdateAPIView):
         return profile
 
 
+class DebugCurrentUserView(APIView):
+    """GET /api/auth/debug-current-user/  -- Diagnostic endpoint for verifying production user authentication & DB email."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        email = (getattr(user, 'email', '') or '').strip()
+        domain = email.split('@')[-1] if '@' in email else 'none'
+        return Response({
+            'authenticated': True,
+            'user_id': user.id,
+            'username': user.username,
+            'email': email,
+            'email_domain': domain,
+        })
+
+
+
 class PasswordResetView(APIView):
     """POST /api/auth/password-reset/  -- reset password by username and email"""
     authentication_classes = []
