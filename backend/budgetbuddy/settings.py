@@ -234,6 +234,7 @@ EMAIL_HOST = 'smtp-relay.brevo.com'
 EMAIL_PORT = 587
 EMAIL_USE_SSL = False
 EMAIL_USE_TLS = True
+EMAIL_TIMEOUT = 10
 
 
 raw_user = os.environ.get('EMAIL_HOST_USER', '').strip()

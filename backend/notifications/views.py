@@ -134,11 +134,24 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
             from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'BudgetBuddy Support <spoortiyadavcspoorthi@gmail.com>')
 
+            from django.core.mail import get_connection
+            connection = get_connection(
+                backend=getattr(settings, 'EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend'),
+                host=getattr(settings, 'EMAIL_HOST', 'smtp-relay.brevo.com'),
+                port=getattr(settings, 'EMAIL_PORT', 587),
+                username=getattr(settings, 'EMAIL_HOST_USER', 'b6e56d001@smtp-brevo.com'),
+                password=getattr(settings, 'EMAIL_HOST_PASSWORD', ''),
+                use_tls=getattr(settings, 'EMAIL_USE_TLS', True),
+                fail_silently=False,
+                timeout=10
+            )
+
             email = EmailMultiAlternatives(
                 subject=subject,
                 body=text_message,
                 from_email=from_email,
-                to=[recipient_email]
+                to=[recipient_email],
+                connection=connection
             )
             email.attach_alternative(html_message, "text/html")
 
