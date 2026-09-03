@@ -149,12 +149,20 @@ class NotificationViewSet(viewsets.ModelViewSet):
                 return Response({'success': False, 'detail': 'Test email was not accepted by the SMTP server.'}, status=500)
 
             logger.info("TEST EMAIL SMTP ACCEPTED user_id=%s, recipient=%s, sent_count=%s", user.id, recipient_email, sent_count)
-            serializer = self.get_serializer(notification)
+            notification_data = {
+                'id': notification.id,
+                'title': notification.title,
+                'message': notification.message,
+                'notification_type': notification.notification_type,
+                'priority': notification.priority,
+                'is_read': notification.is_read,
+                'created_at': notification.created_at.isoformat() if hasattr(notification.created_at, 'isoformat') else str(notification.created_at),
+            }
             return Response({
                 'success': True,
                 'detail': f'Test email accepted by SMTP server and dispatched to {recipient_email}!',
                 'recipient': recipient_email,
-                'notification': serializer.data,
+                'notification': notification_data,
             })
         except Exception as exc:
             logger.exception("TEST EMAIL FAILED user_id=%s, recipient=%s, error=%s", getattr(user, 'id', None), recipient_email, exc)
