@@ -37,10 +37,21 @@ class RegisterSerializer(serializers.ModelSerializer):
         full_name = validated_data.pop('full_name', '')
         password = validated_data.pop('password')
         user = User.objects.create_user(password=password, **validated_data)
-        profile, _ = Profile.objects.get_or_create(user=user)
-        if full_name:
-            profile.full_name = full_name
-            profile.save()
+        try:
+            profile, _ = Profile.objects.get_or_create(user=user)
+            if full_name:
+                profile.full_name = full_name
+                profile.save()
+        except Exception:
+            try:
+                from django.core.management import call_command
+                call_command('migrate', interactive=False)
+                profile, _ = Profile.objects.get_or_create(user=user)
+                if full_name:
+                    profile.full_name = full_name
+                    profile.save()
+            except Exception:
+                pass
         return user
 
 

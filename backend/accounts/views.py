@@ -22,6 +22,19 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     authentication_classes = []
     serializer_class = CustomTokenObtainPairSerializer
 
+    def post(self, request, *args, **kwargs):
+        try:
+            return super().post(request, *args, **kwargs)
+        except Exception as exc:
+            if 'no such table' in str(exc).lower():
+                try:
+                    from django.core.management import call_command
+                    call_command('migrate', interactive=False)
+                    return super().post(request, *args, **kwargs)
+                except Exception:
+                    pass
+            raise exc
+
 
 class CustomTokenRefreshView(TokenRefreshView):
     """Public token refresh endpoint -- disables authentication check so expired headers don't block refresh."""
