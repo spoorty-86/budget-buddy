@@ -231,9 +231,13 @@ _default_smtp_pwd = base64.b64decode('eHNtdHBzaWItYzkwMzgwZDhhYWQ0Y2ZiODNjMDVkMG
 # Email Setup using Brevo SMTP Relay
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp-relay.brevo.com')
-EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
-EMAIL_USE_SSL = False
-EMAIL_USE_TLS = True
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 465))
+if EMAIL_PORT == 465:
+    EMAIL_USE_SSL = True
+    EMAIL_USE_TLS = False
+else:
+    EMAIL_USE_SSL = False
+    EMAIL_USE_TLS = True
 EMAIL_TIMEOUT = 15
 
 
