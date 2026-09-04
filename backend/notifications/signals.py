@@ -1,6 +1,5 @@
 import sys
 import logging
-from concurrent.futures import ThreadPoolExecutor
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.db.models.signals import post_save
@@ -8,9 +7,6 @@ from django.dispatch import receiver
 from .models import Notification
 
 logger = logging.getLogger(__name__)
-
-# Persistent thread pool for background email dispatch (prevents thread killing under Gunicorn)
-email_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix='budgetbuddy_email')
 
 
 def _send_email_async(email_obj, recipient_email, title):
@@ -137,13 +133,8 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
             )
             email.attach_alternative(html_message, "text/html")
 
-            # In unit tests, run synchronously so mail.outbox works; in production, spawn daemon thread
-            if 'test' in sys.argv or getattr(settings, 'EMAIL_BACKEND', '').endswith('locmem.EmailBackend'):
-                _send_email_async(email, recipient_email, instance.title)
-            else:
-                import threading
-                t = threading.Thread(target=_send_email_async, args=(email, recipient_email, instance.title), daemon=True)
-                t.start()
+            # Send notification email synchronously to ensure completion
+            _send_email_async(email, recipient_email, instance.title)
 
         except Exception as e:
             logger.exception("Failed to prepare notification email for %s: %s", getattr(instance.user, 'email', None), e)
