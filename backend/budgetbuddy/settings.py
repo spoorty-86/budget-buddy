@@ -232,12 +232,15 @@ _default_smtp_pwd = base64.b64decode('eHNtdHBzaWItYzkwMzgwZDhhYWQ0Y2ZiODNjMDVkMG
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp-relay.brevo.com')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 465))
-if EMAIL_PORT == 465:
-    EMAIL_USE_SSL = True
-    EMAIL_USE_TLS = False
+
+use_ssl_env = os.environ.get('EMAIL_USE_SSL')
+if use_ssl_env is not None:
+    EMAIL_USE_SSL = use_ssl_env.lower() in ('true', '1', 'yes')
+    EMAIL_USE_TLS = not EMAIL_USE_SSL
 else:
-    EMAIL_USE_SSL = False
-    EMAIL_USE_TLS = True
+    EMAIL_USE_SSL = (EMAIL_PORT == 465)
+    EMAIL_USE_TLS = not EMAIL_USE_SSL
+
 EMAIL_TIMEOUT = 15
 
 
@@ -248,7 +251,7 @@ else:
     EMAIL_HOST_USER = raw_user
 
 raw_pwd = os.environ.get('EMAIL_HOST_PASSWORD', '').strip()
-if not raw_pwd or len(raw_pwd) < 20 or not raw_pwd.startswith('xsmtpsib-'):
+if not raw_pwd or len(raw_pwd) < 20 or not raw_pwd.startswith('xsmtpsib-') or 'placeholder' in raw_pwd.lower():
     EMAIL_HOST_PASSWORD = _default_smtp_pwd
 else:
     EMAIL_HOST_PASSWORD = raw_pwd
