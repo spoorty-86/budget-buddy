@@ -49,8 +49,9 @@ export default function Notifications() {
       }
       await loadNotifications()
     } catch (err) {
-      const msg = err?.response?.data?.detail || 'Test email could not be sent. Please check your email settings.'
-      setError(msg)
+      const status = err?.response?.status ? `HTTP ${err.response.status}` : 'Network Error'
+      const detail = err?.response?.data?.detail || err?.response?.data?.error || err?.message || 'Unknown error occurred.'
+      setError(`${status}: ${detail}`)
     } finally {
       setTestSending(false)
     }

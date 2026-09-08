@@ -62,16 +62,81 @@ class NotificationViewSet(viewsets.ModelViewSet):
         updated_count = self.get_queryset().filter(id__in=ids).update(is_pinned=bool(pin))
         return Response({'status': 'updated', 'count': updated_count})
 
+    @action(detail=False, methods=['get'], url_path='smtp-diag')
+    def smtp_diag(self, request):
+        """
+        Diagnostic endpoint: tests DNS resolution, TCP port connectivity, and SMTP authentication to Brevo directly from Render.
+        """
+        import socket
+        import smtplib
+        from django.conf import settings
+
+        host = getattr(settings, 'EMAIL_HOST', 'smtp-relay.brevo.com')
+        port = int(getattr(settings, 'EMAIL_PORT', 465))
+        use_ssl = getattr(settings, 'EMAIL_USE_SSL', True)
+        use_tls = getattr(settings, 'EMAIL_USE_TLS', False)
+        user = getattr(settings, 'EMAIL_HOST_USER', '')
+        pwd = getattr(settings, 'EMAIL_HOST_PASSWORD', '')
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', '')
+
+        diag = {
+            'EMAIL_HOST': host,
+            'EMAIL_PORT': port,
+            'EMAIL_USE_SSL': use_ssl,
+            'EMAIL_USE_TLS': use_tls,
+            'EMAIL_HOST_USER': user,
+            'DEFAULT_FROM_EMAIL': from_email,
+            'dns_resolution': 'UNKNOWN',
+            'tcp_connection': 'UNKNOWN',
+            'smtp_auth': 'UNKNOWN',
+            'overall_status': 'FAIL',
+            'error_detail': '',
+        }
+
+        try:
+            ip = socket.gethostbyname(host)
+            diag['dns_resolution'] = f"PASS ({ip})"
+        except Exception as e:
+            diag['dns_resolution'] = f"FAIL ({str(e)})"
+            diag['error_detail'] = f"DNS failed: {str(e)}"
+            return Response(diag, status=500)
+
+        try:
+            sock = socket.create_connection((host, port), timeout=10)
+            sock.close()
+            diag['tcp_connection'] = "PASS"
+        except Exception as e:
+            diag['tcp_connection'] = f"FAIL ({str(e)})"
+            diag['error_detail'] = f"TCP connection failed to {host}:{port}: {str(e)}"
+            return Response(diag, status=500)
+
+        try:
+            if use_ssl:
+                server = smtplib.SMTP_SSL(host, port, timeout=10)
+            else:
+                server = smtplib.SMTP(host, port, timeout=10)
+                if use_tls:
+                    server.starttls()
+
+            if user and pwd:
+                server.login(user, pwd)
+            server.quit()
+            diag['smtp_auth'] = "PASS"
+            diag['overall_status'] = "PASS"
+            return Response(diag, status=200)
+        except Exception as e:
+            diag['smtp_auth'] = f"FAIL ({e.__class__.__name__}: {str(e)})"
+            diag['error_detail'] = f"SMTP auth failed: {e.__class__.__name__} - {str(e)}"
+            return Response(diag, status=500)
+
     @action(detail=False, methods=['post'], url_path='test-email')
     def test_email(self, request):
         """
         Sends an instant test notification directly to the authenticated user's registered email address.
-        Executes email.send(fail_silently=False) SYNCHRONOUSLY on the HTTP request worker thread
-        so Brevo SMTP accepts the message before returning HTTP 200.
         """
         import logging
         from django.conf import settings
-        from django.core.mail import EmailMultiAlternatives
+        from django.core.mail import EmailMultiAlternatives, get_connection
 
         logger = logging.getLogger(__name__)
 
@@ -89,9 +154,10 @@ class NotificationViewSet(viewsets.ModelViewSet):
                 status=400
             )
 
-        try:
-            logger.info("TEST EMAIL START user_id=%s, recipient=%s", user.id, recipient_email)
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'BudgetBuddy Support <spoortiyadavcspoorthi@gmail.com>')
+        logger.info("TEST EMAIL REQUEST user_id=%s, username=%s, recipient=%s, sender=%s", user.id, user.username, recipient_email, from_email)
 
+        try:
             # 1. Create in-app Notification record in DB for history
             notification = Notification.objects.create(
                 user=user,
@@ -132,8 +198,6 @@ class NotificationViewSet(viewsets.ModelViewSet):
             </html>
             """
 
-            from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'BudgetBuddy Support <spoortiyadavcspoorthi@gmail.com>')
-
             email = EmailMultiAlternatives(
                 subject=subject,
                 body=text_message,
@@ -142,12 +206,46 @@ class NotificationViewSet(viewsets.ModelViewSet):
             )
             email.attach_alternative(html_message, "text/html")
 
-            sent_count = email.send(fail_silently=False)
+            logger.info("EMAIL SEND START")
+            sent_count = 0
+            primary_error = None
+
+            # Primary attempt using configured backend
+            try:
+                sent_count = email.send(fail_silently=False)
+            except Exception as e:
+                primary_error = e
+                logger.warning("Primary SMTP send failed: %s - %s. Trying fallback SMTP port connection...", e.__class__.__name__, str(e))
+
+            # Fallback attempt if primary send failed
+            if sent_count < 1 and primary_error:
+                alt_port = 587 if getattr(settings, 'EMAIL_PORT', 465) == 465 else 465
+                alt_use_ssl = (alt_port == 465)
+                alt_use_tls = not alt_use_ssl
+                try:
+                    fallback_conn = get_connection(
+                        backend='django.core.mail.backends.smtp.EmailBackend',
+                        host=getattr(settings, 'EMAIL_HOST', 'smtp-relay.brevo.com'),
+                        port=alt_port,
+                        username=getattr(settings, 'EMAIL_HOST_USER', ''),
+                        password=getattr(settings, 'EMAIL_HOST_PASSWORD', ''),
+                        use_ssl=alt_use_ssl,
+                        use_tls=alt_use_tls,
+                        timeout=15,
+                        fail_silently=False
+                    )
+                    email.connection = fallback_conn
+                    sent_count = email.send(fail_silently=False)
+                    logger.info("Fallback SMTP send succeeded on port %s!", alt_port)
+                except Exception as fallback_exc:
+                    logger.error("Fallback SMTP send also failed on port %s: %s", alt_port, str(fallback_exc))
+                    raise primary_error
+
             if sent_count < 1:
-                logger.error("SMTP SEND RETURNED 0 SENT COUNT user_id=%s, recipient=%s", user.id, recipient_email)
+                logger.error("EMAIL SEND FAILURE smtp_result=0 user_id=%s, recipient=%s", user.id, recipient_email)
                 return Response({'success': False, 'detail': 'Test email dispatch returned 0 sent messages.'}, status=500)
 
-            logger.info("TEST EMAIL SMTP ACCEPTED user_id=%s, recipient=%s", user.id, recipient_email)
+            logger.info("EMAIL SEND SUCCESS smtp_result=%s, recipient=%s", sent_count, recipient_email)
             notification_data = {
                 'id': notification.id,
                 'title': notification.title,
@@ -164,8 +262,8 @@ class NotificationViewSet(viewsets.ModelViewSet):
                 'notification': notification_data,
             })
         except Exception as exc:
-            logger.exception("TEST EMAIL FAILED user_id=%s, recipient=%s: %s", getattr(user, 'id', None), recipient_email, str(exc))
-            return Response({'success': False, 'detail': f'Test email sending failed: {str(exc)}'}, status=500)
+            logger.exception("EMAIL SEND FAILURE user_id=%s, recipient=%s: %s", getattr(user, 'id', None), recipient_email, str(exc))
+            return Response({'success': False, 'detail': f'Test email sending failed: {exc.__class__.__name__} - {str(exc)}'}, status=500)
 
 
 
