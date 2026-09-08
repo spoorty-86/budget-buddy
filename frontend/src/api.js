@@ -3,7 +3,10 @@ import axios from 'axios'
 const rawApiUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : 'https://budgetbuddy-backend-es1w.onrender.com')
 const API_URL = rawApiUrl.replace(/\/+$/, '')
 
-const api = axios.create({ baseURL: API_URL })
+const api = axios.create({ 
+  baseURL: API_URL,
+  timeout: 8000,
+})
 
 const PUBLIC_ENDPOINTS = [
   '/api/auth/login/',

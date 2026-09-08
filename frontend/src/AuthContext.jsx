@@ -26,15 +26,26 @@ export function AuthProvider({ children }) {
     const access = localStorage.getItem('access')
     const refresh = localStorage.getItem('refresh')
 
+    // Fallback guard: Ensure app unblocks after at most 4 seconds
+    const safetyTimer = setTimeout(() => {
+      setReady(true)
+    }, 4000)
+
     if (access || refresh) {
       loadProfile()
         .catch((err) => {
           console.warn('Session restoration failed:', err)
         })
-        .finally(() => setReady(true))
+        .finally(() => {
+          clearTimeout(safetyTimer)
+          setReady(true)
+        })
     } else {
+      clearTimeout(safetyTimer)
       setReady(true)
     }
+
+    return () => clearTimeout(safetyTimer)
   }, [loadProfile])
 
   async function login(username, password) {
