@@ -206,9 +206,8 @@ class NotificationViewSet(viewsets.ModelViewSet):
             sent_count = 0
             last_error = None
 
-            ports_to_try = [getattr(settings, 'EMAIL_PORT', 2525), 2525, 587, 465]
-            seen = set()
-            ordered_ports = [p for p in ports_to_try if not (p in seen or seen.add(p))]
+            # Always try port 2525 first since smtp-diag proves port 2525 is open & authenticated on Render
+            ordered_ports = [2525, 587, 465]
 
             for p in ordered_ports:
                 use_ssl = (p == 465)
