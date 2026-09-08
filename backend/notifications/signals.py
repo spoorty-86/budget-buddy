@@ -9,7 +9,9 @@ from .models import Notification
 logger = logging.getLogger(__name__)
 
 
-def _send_email_async(email_obj, recipient_email, title):
+import threading
+
+def _send_email_worker(email_obj, recipient_email, title):
     from django.core.mail import get_connection
     try:
         sent_count = email_obj.send(fail_silently=False)
@@ -39,6 +41,12 @@ def _send_email_async(email_obj, recipient_email, title):
         except Exception as fallback_e:
             logger.exception("NOTIFICATION DISPATCH FAILURE on primary & fallback: recipient=%s, error=%s", recipient_email, fallback_e)
             return 0
+
+
+def _send_email_async(email_obj, recipient_email, title):
+    """Launches email dispatch in a background thread so HTTP requests return instantly without socket blocking."""
+    t = threading.Thread(target=_send_email_worker, args=(email_obj, recipient_email, title), daemon=True)
+    t.start()
 
 
 @receiver(post_save, sender=Notification)
