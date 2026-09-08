@@ -206,7 +206,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
             sent_count = 0
             last_error = None
 
-            ports_to_try = [getattr(settings, 'EMAIL_PORT', 587), 587, 2525, 465]
+            ports_to_try = [getattr(settings, 'EMAIL_PORT', 2525), 2525, 587, 465]
             seen = set()
             ordered_ports = [p for p in ports_to_try if not (p in seen or seen.add(p))]
 
@@ -222,7 +222,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
                         password=getattr(settings, 'EMAIL_HOST_PASSWORD', ''),
                         use_ssl=use_ssl,
                         use_tls=use_tls,
-                        timeout=8,
+                        timeout=5,
                         fail_silently=False
                     )
                     email.connection = conn
