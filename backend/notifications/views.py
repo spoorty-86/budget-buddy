@@ -65,69 +65,65 @@ class NotificationViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='smtp-diag')
     def smtp_diag(self, request):
         """
-        Diagnostic endpoint: tests DNS resolution, TCP port connectivity, and SMTP authentication to Brevo directly from Render.
+        Diagnostic endpoint: tests DNS resolution, TCP port connectivity across ports 587, 2525, and 465 directly from Render.
         """
         import socket
         import smtplib
         from django.conf import settings
 
         host = getattr(settings, 'EMAIL_HOST', 'smtp-relay.brevo.com')
-        port = int(getattr(settings, 'EMAIL_PORT', 465))
-        use_ssl = getattr(settings, 'EMAIL_USE_SSL', True)
-        use_tls = getattr(settings, 'EMAIL_USE_TLS', False)
         user = getattr(settings, 'EMAIL_HOST_USER', '')
         pwd = getattr(settings, 'EMAIL_HOST_PASSWORD', '')
         from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', '')
 
-        diag = {
-            'EMAIL_HOST': host,
-            'EMAIL_PORT': port,
-            'EMAIL_USE_SSL': use_ssl,
-            'EMAIL_USE_TLS': use_tls,
-            'EMAIL_HOST_USER': user,
-            'DEFAULT_FROM_EMAIL': from_email,
-            'dns_resolution': 'UNKNOWN',
-            'tcp_connection': 'UNKNOWN',
-            'smtp_auth': 'UNKNOWN',
-            'overall_status': 'FAIL',
-            'error_detail': '',
-        }
+        ports_to_test = [587, 2525, 465]
+        port_results = {}
 
+        dns_status = "UNKNOWN"
         try:
             ip = socket.gethostbyname(host)
-            diag['dns_resolution'] = f"PASS ({ip})"
+            dns_status = f"PASS ({ip})"
         except Exception as e:
-            diag['dns_resolution'] = f"FAIL ({str(e)})"
-            diag['error_detail'] = f"DNS failed: {str(e)}"
-            return Response(diag, status=500)
+            dns_status = f"FAIL ({str(e)})"
 
-        try:
-            sock = socket.create_connection((host, port), timeout=10)
-            sock.close()
-            diag['tcp_connection'] = "PASS"
-        except Exception as e:
-            diag['tcp_connection'] = f"FAIL ({str(e)})"
-            diag['error_detail'] = f"TCP connection failed to {host}:{port}: {str(e)}"
-            return Response(diag, status=500)
+        for p in ports_to_test:
+            res = {'tcp': 'UNKNOWN', 'auth': 'UNKNOWN'}
+            try:
+                sock = socket.create_connection((host, p), timeout=5)
+                sock.close()
+                res['tcp'] = "PASS"
+            except Exception as e:
+                res['tcp'] = f"FAIL ({str(e)})"
 
-        try:
-            if use_ssl:
-                server = smtplib.SMTP_SSL(host, port, timeout=10)
-            else:
-                server = smtplib.SMTP(host, port, timeout=10)
-                if use_tls:
-                    server.starttls()
+            if res['tcp'] == "PASS":
+                try:
+                    if p == 465:
+                        server = smtplib.SMTP_SSL(host, p, timeout=5)
+                    else:
+                        server = smtplib.SMTP(host, p, timeout=5)
+                        server.starttls()
 
-            if user and pwd:
-                server.login(user, pwd)
-            server.quit()
-            diag['smtp_auth'] = "PASS"
-            diag['overall_status'] = "PASS"
-            return Response(diag, status=200)
-        except Exception as e:
-            diag['smtp_auth'] = f"FAIL ({e.__class__.__name__}: {str(e)})"
-            diag['error_detail'] = f"SMTP auth failed: {e.__class__.__name__} - {str(e)}"
-            return Response(diag, status=500)
+                    if user and pwd:
+                        server.login(user, pwd)
+                    server.quit()
+                    res['auth'] = "PASS"
+                except Exception as e:
+                    res['auth'] = f"FAIL ({e.__class__.__name__}: {str(e)})"
+            port_results[str(p)] = res
+
+        working_ports = [p for p, r in port_results.items() if r.get('auth') == 'PASS']
+
+        diag = {
+            'EMAIL_HOST': host,
+            'EMAIL_HOST_USER': user,
+            'DEFAULT_FROM_EMAIL': from_email,
+            'dns_resolution': dns_status,
+            'port_results': port_results,
+            'working_ports': working_ports,
+            'overall_status': 'PASS' if working_ports else 'FAIL',
+        }
+        status_code = 200 if working_ports else 500
+        return Response(diag, status=status_code)
 
     @action(detail=False, methods=['post'], url_path='test-email')
     def test_email(self, request):
@@ -208,41 +204,39 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
             logger.info("EMAIL SEND START")
             sent_count = 0
-            primary_error = None
+            last_error = None
 
-            # Primary attempt using configured backend
-            try:
-                sent_count = email.send(fail_silently=False)
-            except Exception as e:
-                primary_error = e
-                logger.warning("Primary SMTP send failed: %s - %s. Trying fallback SMTP port connection...", e.__class__.__name__, str(e))
+            ports_to_try = [getattr(settings, 'EMAIL_PORT', 587), 587, 2525, 465]
+            seen = set()
+            ordered_ports = [p for p in ports_to_try if not (p in seen or seen.add(p))]
 
-            # Fallback attempt if primary send failed
-            if sent_count < 1 and primary_error:
-                alt_port = 587 if getattr(settings, 'EMAIL_PORT', 465) == 465 else 465
-                alt_use_ssl = (alt_port == 465)
-                alt_use_tls = not alt_use_ssl
+            for p in ordered_ports:
+                use_ssl = (p == 465)
+                use_tls = not use_ssl
                 try:
-                    fallback_conn = get_connection(
+                    conn = get_connection(
                         backend='django.core.mail.backends.smtp.EmailBackend',
                         host=getattr(settings, 'EMAIL_HOST', 'smtp-relay.brevo.com'),
-                        port=alt_port,
+                        port=p,
                         username=getattr(settings, 'EMAIL_HOST_USER', ''),
                         password=getattr(settings, 'EMAIL_HOST_PASSWORD', ''),
-                        use_ssl=alt_use_ssl,
-                        use_tls=alt_use_tls,
-                        timeout=15,
+                        use_ssl=use_ssl,
+                        use_tls=use_tls,
+                        timeout=8,
                         fail_silently=False
                     )
-                    email.connection = fallback_conn
+                    email.connection = conn
                     sent_count = email.send(fail_silently=False)
-                    logger.info("Fallback SMTP send succeeded on port %s!", alt_port)
-                except Exception as fallback_exc:
-                    logger.error("Fallback SMTP send also failed on port %s: %s", alt_port, str(fallback_exc))
-                    raise primary_error
+                    if sent_count >= 1:
+                        logger.info("SMTP send SUCCESS on port %s!", p)
+                        break
+                except Exception as port_exc:
+                    last_error = port_exc
+                    logger.warning("SMTP send failed on port %s: %s - %s", p, port_exc.__class__.__name__, str(port_exc))
 
             if sent_count < 1:
-                logger.error("EMAIL SEND FAILURE smtp_result=0 user_id=%s, recipient=%s", user.id, recipient_email)
+                if last_error:
+                    raise last_error
                 return Response({'success': False, 'detail': 'Test email dispatch returned 0 sent messages.'}, status=500)
 
             logger.info("EMAIL SEND SUCCESS smtp_result=%s, recipient=%s", sent_count, recipient_email)
