@@ -175,24 +175,76 @@ class NotificationViewSet(viewsets.ModelViewSet):
                 f"Best regards,\nBudgetBuddy Support Team"
             )
 
-            html_message = f"""
-            <!DOCTYPE html>
-            <html>
-            <head><meta charset="utf-8"><title>{subject}</title></head>
-            <body style="font-family: sans-serif; background-color: #f1f5f9; padding: 20px;">
-              <div style="max-width: 600px; margin: 0 auto; background: #ffffff; padding: 24px; border-radius: 12px;">
-                <h1 style="color: #0f172a; margin: 0;">Budget<span style="color: #10b981;">Buddy</span></h1>
-                <p style="color: #64748b;">Hello <strong>{user_display_name}</strong>,</p>
-                <p>This is a test notification sent to your registered email address <strong>{recipient_email}</strong>.</p>
-                <div style="background-color: #f8fafc; border-left: 4px solid #10b981; padding: 16px; margin: 20px 0;">
-                  <strong style="color: #0f172a;">Account Notification Test</strong>
-                  <p style="margin: 4px 0 0 0; color: #334155;">Your real-time email notifications are working perfectly!</p>
+            html_message = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{subject}</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; color: #1e293b;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f5f9; padding: 20px 0;">
+    <tr>
+      <td align="center">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
+          
+          <!-- Header Banner -->
+          <tr>
+            <td style="background-color: #0f172a; padding: 24px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">
+                Budget<span style="color: #10b981;">Buddy</span>
+              </h1>
+              <p style="color: #94a3b8; margin: 4px 0 0 0; font-size: 13px;">Real-Time Account Notification</p>
+            </td>
+          </tr>
+
+          <!-- Main Body -->
+          <tr>
+            <td style="padding: 32px 24px;">
+              <p style="font-size: 16px; margin-top: 0; color: #334155; line-height: 1.5;">
+                Hello <strong>{user_display_name}</strong>,
+              </p>
+              <p style="font-size: 14px; color: #64748b; line-height: 1.5; margin-bottom: 20px;">
+                This is a test notification sent to your registered email address <strong>{recipient_email}</strong>:
+              </p>
+
+              <!-- Notification Card Box -->
+              <div style="background-color: #f8fafc; border-left: 4px solid #10b981; padding: 18px; border-radius: 8px; margin: 20px 0;">
+                <div style="margin-bottom: 8px;">
+                  <span style="background-color: #10b981; color: #ffffff; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    SUCCESS
+                  </span>
+                  <strong style="font-size: 16px; color: #0f172a; margin-left: 6px;">Account Notification Test</strong>
                 </div>
-                <a href="{login_url}" style="background-color: #10b981; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Open BudgetBuddy App &rarr;</a>
+                <p style="font-size: 14px; color: #334155; margin: 8px 0 0 0; line-height: 1.6;">Your real-time email notifications are working perfectly!</p>
               </div>
-            </body>
-            </html>
-            """
+
+              <!-- CTA Button -->
+              <div style="text-align: center; margin: 28px 0 12px 0;">
+                <a href="{login_url}" style="background-color: #10b981; color: #ffffff; padding: 12px 26px; text-decoration: none; font-size: 14px; font-weight: 600; border-radius: 8px; display: inline-block; box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);">
+                  Open BudgetBuddy App &rarr;
+                </a>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 16px 24px; text-align: center; border-top: 1px solid #e2e8f0;">
+              <p style="font-size: 12px; color: #94a3b8; margin: 0; line-height: 1.5;">
+                This notification was sent to <strong>{recipient_email}</strong>.<br>
+                BudgetBuddy Platform &bull; <a href="{login_url}" style="color: #10b981; text-decoration: none;">https://budget-buddy-apps.vercel.app/login</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+"""
 
             email = EmailMultiAlternatives(
                 subject=subject,
