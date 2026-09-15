@@ -43,14 +43,16 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
         try:
             user_display_name = instance.user.first_name or instance.user.username or 'BudgetBuddy User'
             login_url = "https://budget-buddy-apps.vercel.app/login"
-            subject = f"BudgetBuddy Alert: {instance.title}"
+            notification_id = getattr(instance, 'id', '0')
+            subject = f"BudgetBuddy Alert: {instance.title} (#{notification_id})"
             
             text_message = (
                 f"Hello {user_display_name},\n\n"
                 f"You have received a new notification in BudgetBuddy:\n\n"
                 f"📌 Title: {instance.title}\n"
                 f"🏷️ Type: {instance.notification_type}\n"
-                f"⚡ Priority: {instance.priority}\n\n"
+                f"⚡ Priority: {instance.priority}\n"
+                f"🆔 Reference: #{notification_id}\n\n"
                 f"💬 Message:\n{instance.message}\n\n"
                 f"🔗 View in BudgetBuddy: {login_url}\n\n"
                 f"Best regards,\n"
@@ -72,6 +74,10 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
               <title>{subject}</title>
             </head>
             <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; color: #1e293b;">
+              <!-- Gmail Preview Text Guard -->
+              <div style="display:none; font-size:1px; color:#ffffff; line-height:1px; max-height:0px; max-width:0px; opacity:0; overflow:hidden;">
+                {instance.title}: {instance.message} (Ref #{notification_id})
+              </div>
               <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
                 <!-- Header -->
                 <tr>
@@ -96,6 +102,7 @@ def send_notification_email_on_creation(sender, instance, created, **kwargs):
                           {instance.notification_type}
                         </span>
                         <strong style="font-size: 16px; color: #0f172a;">{instance.title}</strong>
+                        <span style="font-size: 12px; color: #94a3b8; margin-left: auto;">#{notification_id}</span>
                       </div>
                       <p style="font-size: 14px; color: #334155; margin: 8px 0 0 0; line-height: 1.5; white-space: pre-wrap;">{instance.message}</p>
                     </div>
