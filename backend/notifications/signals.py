@@ -9,44 +9,14 @@ from .models import Notification
 logger = logging.getLogger(__name__)
 
 
-import threading
-
-def _send_email_worker(email_obj, recipient_email, title):
-    from django.core.mail import get_connection
+def _send_email_async(email_obj, recipient_email, title):
     try:
         sent_count = email_obj.send(fail_silently=False)
         logger.info("NOTIFICATION DISPATCH SUCCESS: sent_count=%s, recipient=%s, title='%s'", sent_count, recipient_email, title)
         return sent_count
     except Exception as e:
-        logger.warning("Primary notification email dispatch failed: %s - %s. Trying fallback SMTP port...", e.__class__.__name__, str(e))
-        alt_port = 587 if getattr(settings, 'EMAIL_PORT', 465) == 465 else 465
-        alt_use_ssl = (alt_port == 465)
-        alt_use_tls = not alt_use_ssl
-        try:
-            fallback_conn = get_connection(
-                backend='django.core.mail.backends.smtp.EmailBackend',
-                host=getattr(settings, 'EMAIL_HOST', 'smtp-relay.brevo.com'),
-                port=alt_port,
-                username=getattr(settings, 'EMAIL_HOST_USER', ''),
-                password=getattr(settings, 'EMAIL_HOST_PASSWORD', ''),
-                use_ssl=alt_use_ssl,
-                use_tls=alt_use_tls,
-                timeout=15,
-                fail_silently=False
-            )
-            email_obj.connection = fallback_conn
-            sent_count = email_obj.send(fail_silently=False)
-            logger.info("Fallback notification email dispatch SUCCESS on port %s: sent_count=%s, recipient=%s", alt_port, sent_count, recipient_email)
-            return sent_count
-        except Exception as fallback_e:
-            logger.exception("NOTIFICATION DISPATCH FAILURE on primary & fallback: recipient=%s, error=%s", recipient_email, fallback_e)
-            return 0
-
-
-def _send_email_async(email_obj, recipient_email, title):
-    """Launches email dispatch in a background thread so HTTP requests return instantly without socket blocking."""
-    t = threading.Thread(target=_send_email_worker, args=(email_obj, recipient_email, title), daemon=True)
-    t.start()
+        logger.exception("NOTIFICATION DISPATCH FAILURE: recipient=%s, error=%s", recipient_email, e)
+        return 0
 
 
 @receiver(post_save, sender=Notification)

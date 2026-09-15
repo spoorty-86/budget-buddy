@@ -203,39 +203,10 @@ class NotificationViewSet(viewsets.ModelViewSet):
             email.attach_alternative(html_message, "text/html")
 
             logger.info("EMAIL SEND START")
-            sent_count = 0
-            last_error = None
-
-            # Always try port 2525 first since smtp-diag proves port 2525 is open & authenticated on Render
-            ordered_ports = [2525, 587, 465]
-
-            for p in ordered_ports:
-                use_ssl = (p == 465)
-                use_tls = not use_ssl
-                try:
-                    conn = get_connection(
-                        backend='django.core.mail.backends.smtp.EmailBackend',
-                        host=getattr(settings, 'EMAIL_HOST', 'smtp-relay.brevo.com'),
-                        port=p,
-                        username=getattr(settings, 'EMAIL_HOST_USER', ''),
-                        password=getattr(settings, 'EMAIL_HOST_PASSWORD', ''),
-                        use_ssl=use_ssl,
-                        use_tls=use_tls,
-                        timeout=5,
-                        fail_silently=False
-                    )
-                    email.connection = conn
-                    sent_count = email.send(fail_silently=False)
-                    if sent_count >= 1:
-                        logger.info("SMTP send SUCCESS on port %s!", p)
-                        break
-                except Exception as port_exc:
-                    last_error = port_exc
-                    logger.warning("SMTP send failed on port %s: %s - %s", p, port_exc.__class__.__name__, str(port_exc))
+            sent_count = email.send(fail_silently=False)
 
             if sent_count < 1:
-                if last_error:
-                    raise last_error
+                logger.error("EMAIL SEND FAILURE smtp_result=0 user_id=%s, recipient=%s", user.id, recipient_email)
                 return Response({'success': False, 'detail': 'Test email dispatch returned 0 sent messages.'}, status=500)
 
             logger.info("EMAIL SEND SUCCESS smtp_result=%s, recipient=%s", sent_count, recipient_email)
